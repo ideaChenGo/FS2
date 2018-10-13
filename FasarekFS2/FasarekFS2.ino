@@ -375,6 +375,9 @@ void serverCapture() {
   Serial.print(F("capture total_time used (in miliseconds):"));
   Serial.println(total_time, DEC);
 
+  if (slave_cam_ip != "") {
+    shutterPing();
+  }
   total_time = 0;
 
   Serial.println(F("CAM Capture Done."));
@@ -531,3 +534,26 @@ void shutterLongClick(Button2& btn) {
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
 }
+
+void shutterPing() {
+  // Attempt to read settings.slave_cam_ip and ping a second camera
+  WiFiClient client;
+  String host = slave_cam_ip;
+  if (!client.connect(host, 80)) {
+    Serial.println("connection to "+String(host)+" failed");
+    return;
+  }
+    // This will send the request to the server
+  client.print(String("GET ") + "/capture HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" + 
+               "Connection: close\r\n\r\n");
+  unsigned long timeout = millis();
+  while (client.available() == 0) {
+    if (millis() - timeout > 100) {
+      Serial.println("Just a ping, we are not going to wait for response");
+      client.stop();
+      return;
+    }
+  }
+}
+

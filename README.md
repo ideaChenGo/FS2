@@ -27,13 +27,32 @@ Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-
 
 ### Requirements to compile this
 
-To compile this on Arduino and upload it to your ESP8266 board you will need the following
+To compile this on Arduino and upload it to your ESP8266 board you will need the following things to be properly set up:
 
    WiFiManager library in it's latest version (Check credit links)
+
+   The last ESP8266 Board in Arduino
+
    [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System 
-   Please rename the config.json.dist to config.json and configure it to fit your system
+
+   *An upload API endpoint* That is referred in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint
+
    [Button2](https://github.com/LennartHennigs/Button2) Arduino Library to simplify working with buttons. It allows you to use callback functions to track single, double, triple and long clicks.
+
    The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image, responding with the image full URL. For an example about this please check my repository [repository php-gallery](https://github.com/martinberlin/php-gallery)
+
+### config.json
+
+   {
+   "timelapse":    30,
+   "upload_host" : "testweb.com",
+   "upload_path" : "/upload.php?f=2018",
+   "slave_cam_ip": ""
+   }
+
+*timelapse*   Seconds in timelapse mode (Enabled doing a long Shutter click of at least 2 seconds)
+*upload_host* / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
+*slave_cam_ip*  BETA A GET ping that is made to another IP or host/capture on the moment of taking a picture. For ex. can be used to trigger IP/capture route of another camera, taking two picture at the same time when you shoot one camera
 
 ### Known limitations and bugs
 
