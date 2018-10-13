@@ -28,7 +28,10 @@ Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-
 ### Credits
 
 [tablatronix WiFiManager](https://github.com/tzapu/WiFiManager) The amazing, configurable, extendable WiFiManager library made by tablatronix is the ground basement of this Camera
-[Arducam](http://www.arducam.com) This camera has enabled many hobby electronic enthusiasts to make very interesting applications, with this Espressif chips, but also with Raspberry Pi. 
+
+[Arducam](http://www.arducam.com) This camera has enabled many hobby electronic enthusiasts to make very interesting applications, with this Espressif chips, but also with Raspberry Pi
+
 [3D-Print the FS2 Camera](https://www.thingiverse.com/thing:3135141) 
+
 [Fasani](https://fasani.de) Lead programmer of this project
 
