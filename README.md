@@ -25,6 +25,26 @@ Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-
 
 ![electronics Schematics](https://fasarek.de/assets/fs2/Schematic_FS2-Camera_FS2_201810.png)
 
+### Requirements to compile this
+
+To compile this on Arduino and upload it to your ESP8266 board you will need the following
+
+   WiFiManager library in it's latest version (Check credit links)
+   [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System 
+   Please rename the config.json.dist to config.json and configure it to fit your system
+   [Button2](https://github.com/LennartHennigs/Button2) Arduino Library to simplify working with buttons. It allows you to use callback functions to track single, double, triple and long clicks.
+   The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image, responding with the image full URL. For an example about this please check my repository [repository php-gallery](https://github.com/martinberlin/php-gallery)
+
+### Known limitations and bugs
+
+My C++ skills to make a POST request may not work sometimes, WiFi can be not stable, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
+But well is not so tragic. Just do not expect a super high resolution. And start with Arducam 2MP, before going any further.
+Resolution in 2MP can be 1600x1200 jpeg, filesize anywhere between 50 and 100K.
+That takes here with fast WiFi about 4 / 5 seconds and connected through a mobile hotspot some seconds more. This resolutions was so far the best in my tests because going higher, you get more resolution, but also a higher fail rate.
+For a PHP upload endpoint please check the upload.php sample using my 
+[repository php-gallery](https://github.com/martinberlin/php-gallery) (A bootstrap4 very simple PHP gallery)
+
+
 ### Credits
 
 [tablatronix WiFiManager](https://github.com/tzapu/WiFiManager) The amazing, configurable, extendable WiFiManager library made by tablatronix is the ground basement of this Camera
