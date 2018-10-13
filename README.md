@@ -2,9 +2,8 @@
 ## ESP8266 WiFi powered digital Camera
 
 ### The FS2 is a digital Polaroid that uploads the photo instantly to the cloud
-
 This project serves as a base to explore Arducam possibilities in combination with a WiFI "System on a Chip" such as ESP8266 to create a simple WiFi point-and-shoot digital camera.
-This is a work in progress and only schematics is provided, but it can work out of the box if you can connect 8 Serial Parallel Interface cables from the camera to a Wemos D1 or similar and upload the Arducam example.
+This is a work in progress, and only schematics is provided, but it can work out of the box if you can connect 8 Serial Parallel Interface cables from the camera to a Wemos D1 or similar and upload this example with the described requirements. Please open an issue if you can't compile it and I will try to help and fill the missing requirements.
 
 ### What is powering this camera
 This WiFi instant camera is powered by a 2000mA/hr LiOn battery and Espressif state of the art WiFi "System of a Chip" allowing to be about 15 hours online and take hundreds of pictures.
@@ -13,20 +12,18 @@ Press the shooter button and the JPEG will be uploaded to a digital gallery in t
 ### How to set up the connection
 It's done in two easy steps:
 
-    Then you have to connect to it through the phone and browse 162.168.4.1 there will greet you a “WiFi manager”
-    Select a WiFi and write the credentials to make a connection
+    1 . Then you have to connect to it through the phone and browse 162.168.4.1 there will greet you a “WiFi manager”
+    2 . Select a WiFi and write the credentials to make a connection
     You are all set, you just need to enable the hotspot and the camera will reset and connect to it automatically.
 
 This is just the base program to enable you to have a fast demo to start with. The idea is that is fully open source DIY Camera where the users can modify and fully control the software that is running it. 
 
 ### Schematics
-
-Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress.
+Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress. There you will find also the hardware components that are just a few and you will need a 2.54 small PCB board to fit the components (35*56 mm).
 
 ![electronics Schematics](https://fasarek.de/assets/fs2/Schematic_FS2-Camera_FS2_201810.png)
 
 ### Requirements to compile this
-
 To compile this on Arduino and upload it to your ESP8266 board you will need the following things to be properly set up:
 
    WiFiManager library in it's latest version (Check credit links)
@@ -50,19 +47,18 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    "slave_cam_ip": ""
    }
 
-*timelapse*   Seconds in timelapse mode (Enabled doing a long Shutter click of at least 2 seconds)
-*upload_host* / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
-*slave_cam_ip*  BETA A GET ping that is made to another IP or host/capture on the moment of taking a picture. For ex. can be used to trigger IP/capture route of another camera, taking two picture at the same time when you shoot one camera
+**timelapse**   Seconds in timelapse mode (Enabled doing a long Shutter click of at least 2 seconds)
+**upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
+**slave_cam_ip**  BETA A GET ping that is made to another IP or host/capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'
 
 ### Known limitations and bugs
-
-My C++ skills to make a POST request may not work sometimes, WiFi can be not stable, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
-But well is not so tragic. Just do not expect a super high resolution. And start with Arducam 2MP, before going any further.
-Resolution in 2MP can be 1600x1200 jpeg, filesize anywhere between 50 and 100K.
-That takes here with fast WiFi about 4 / 5 seconds and connected through a mobile hotspot some seconds more. This resolutions was so far the best in my tests because going higher, you get more resolution, but also a higher fail rate.
+My C++ skills to make a POST are not fail safe, WiFi can be not stable all times, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
+But well is not so tragic. Just do not expect a super high resolution. And start with Arducam 2 megapixels before going any further.
+Max. resolution in Arducam 2MP can be 1600x1200 jpeg and filesize anywhere between 50 and 100K.
+That takes here with fast WiFi about 4 / 5 seconds and connected through a mobile hotspot some seconds more. This resolutions was so far the best in my tests because going higher, you get more resolution, but also a higher fail rate. So it's possible to use an Arducam 5MP and take more higher resolution images but I don't really see the point right now, since it's not failsafe. 
+To be clear: It just makes a POST push attempt with any checks or whatsoever to a PHP endpoint, that will not upload anything if the image does not arrive entirely, logging a partial upload exception in your server. Other than that it will work allright most of the time being my current fault rate about 1 fail in 20 pictures. 
 For a PHP upload endpoint please check the upload.php sample using my 
 [repository php-gallery](https://github.com/martinberlin/php-gallery) (A bootstrap4 very simple PHP gallery)
-
 
 ### Credits
 
