@@ -1,0 +1,6 @@
+{
+  "timelapse":    30,
+  "upload_host" : "your.upload.host",
+  "upload_path" : "/your/upload/script/path/upload.php?f=2018",
+  "slave_cam_ip": ""
+}
