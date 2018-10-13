@@ -4,6 +4,7 @@
 ### The FS2 is a digital Polaroid that uploads the photo instantly to the cloud
 This project serves as a base to explore Arducam possibilities in combination with a WiFI "System on a Chip" such as ESP8266 to create a simple WiFi point-and-shoot digital camera.
 This is a work in progress, and only schematics is provided, but it can work out of the box if you can connect 8 Serial Parallel Interface cables from the camera to a Wemos D1 or similar and upload this example with the described requirements. Please open an issue if you can't compile it and I will try to help and fill the missing requirements.
+This is just the base program to enable you to have a fast demo to start with. The idea is that is fully open source DIY Camera where the users can modify and fully control the software that is running it. 
 
 ### What is powering this camera
 This WiFi instant camera is powered by a 2000mA/hr LiOn battery and Espressif state of the art WiFi "System of a Chip" allowing to be about 15 hours online and take hundreds of pictures.
@@ -12,11 +13,9 @@ Press the shooter button and the JPEG will be uploaded to a digital gallery in t
 ### How to set up the connection
 It's done in two easy steps:
 
-    1 . Then you have to connect to it through the phone and browse 162.168.4.1 there will greet you a “WiFi manager”
+    1 . Turn on the camera and connect to CAM-autoconnect through any device, browse 162.168.4.1 and there will greet you the  “WiFi manager”
     2 . Select a WiFi and write the credentials to make a connection
     You are all set, you just need to enable the hotspot and the camera will reset and connect to it automatically.
-
-This is just the base program to enable you to have a fast demo to start with. The idea is that is fully open source DIY Camera where the users can modify and fully control the software that is running it. 
 
 ### Schematics
 Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress. There you will find also the hardware components that are just a few and you will need a 2.54 small PCB board to fit the components (35*56 mm).
@@ -30,7 +29,9 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 
    The last ESP8266 Board in Arduino
 
-   [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System 
+   [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System.
+   
+   Arduino JSON Library. I literally copied WiFi Manager example to build the config.json
 
    *An upload API endpoint* That is referred in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint
 
@@ -50,6 +51,8 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 **timelapse**   Seconds in timelapse mode (Enabled doing a long Shutter click of at least 2 seconds)
 **upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
 **slave_cam_ip**  BETA A GET ping that is made to another IP or host/capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'
+
+NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
 
 ### Known limitations and bugs
 My C++ skills to make a POST are not fail safe, WiFi can be not stable all times, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
