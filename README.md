@@ -48,9 +48,11 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    "slave_cam_ip": ""
    }
 
-**timelapse**   Seconds in timelapse mode (Enabled doing a long Shutter click of at least 2 seconds)
+**timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 2 seconds)
+
 **upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
-**slave_cam_ip**  BETA A GET ping that is made to another IP or host/capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'
+
+**slave_cam_ip**  BETA A GET ping that is made to another IP or host and fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
 
@@ -59,7 +61,7 @@ My C++ skills to make a POST are not fail safe, WiFi can be not stable all times
 But well is not so tragic. Just do not expect a super high resolution. And start with Arducam 2 megapixels before going any further.
 Max. resolution in Arducam 2MP can be 1600x1200 jpeg and filesize anywhere between 50 and 100K.
 That takes here with fast WiFi about 4 / 5 seconds and connected through a mobile hotspot some seconds more. This resolutions was so far the best in my tests because going higher, you get more resolution, but also a higher fail rate. So it's possible to use an Arducam 5MP and take more higher resolution images but I don't really see the point right now, since it's not failsafe. 
-To be clear: It just makes a POST push attempt with any checks or whatsoever to a PHP endpoint, that will not upload anything if the image does not arrive entirely, logging a partial upload exception in your server. Other than that it will work allright most of the time being my current fault rate about 1 fail in 20 pictures. 
+To be clear: It just makes a POST push attempt without any checks or whatsoever to a PHP endpoint, that will not upload anything if the image does not arrive entirely, logging a partial upload exception in your server. Other than that it will work allright most of the time being my current fault rate about 1 fail in 20 pictures. 
 For a PHP upload endpoint please check the upload.php sample using my 
 [repository php-gallery](https://github.com/martinberlin/php-gallery) (A bootstrap4 very simple PHP gallery)
 
