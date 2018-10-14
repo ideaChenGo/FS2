@@ -23,6 +23,10 @@ Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-
 
 ![electronics Schematics](https://fasarek.de/assets/fs2/Schematic_FS2-Camera_FS2_201810.png)
 
+### Photos previews in Php-gallery
+Please check this small gallery for Photo samples taken with the 2MP Arducam model and this camera:
+[FS2 Photo previews](https://fasarek.de/php-gallery/gallery/index.php)
+
 ### Requirements to compile this
 To compile this on Arduino and upload it to your ESP8266 board you will need the following things to be properly set up:
 
