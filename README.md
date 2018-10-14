@@ -79,6 +79,7 @@ The main idea to build this was to learn more of C++ and IoT specially when deal
     2. EXTEND THIS to work also taking advantage of Arducam 5Mp and their 8 megas flash memory. 
        That will enable taking pictures offline up to this native storage capacity.
     3. OFFLINE PICTURES adding a flash card reader to this for the Arducam 2MP
+       Also would be possible to save the images on SPIFFS but it has a writing limit like any SD Card
     4. SYNC OFFLINE TO ONLINE when camera finds an available WIFI
     
 This are only some of the next goals. But is your camera, your software, so make what you want from it and learn in the process.
