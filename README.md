@@ -27,32 +27,32 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 
    WiFiManager library in it's latest version (Check credit links)
 
-   The last ESP8266 Board in Arduino
+   The last ESP8266 Board in Arduino.
 
    [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System.
    
    Arduino JSON Library. I literally copied WiFi Manager example to build the config.json
 
-   *An upload API endpoint* That is referred in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint
+   *UPDATE the upload API endpoint* in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint that will recive the Post request from the camera.
 
    [Button2](https://github.com/LennartHennigs/Button2) Arduino Library to simplify working with buttons. It allows you to use callback functions to track single, double, triple and long clicks.
 
-   The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image, responding with the image full URL. For an example about this please check my repository [repository php-gallery](https://github.com/martinberlin/php-gallery)
+   The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image responding with the image full URL. For an example about this please check the script upload.php in my [repository php-gallery](https://github.com/martinberlin/php-gallery)
 
 ### config.json
 
-   {
-   "timelapse":    30,
-   "upload_host" : "testweb.com",
-   "upload_path" : "/upload.php?f=2018",
-   "slave_cam_ip": ""
-   }
+    {
+     "timelapse":    30,
+     "upload_host" : "testweb.com",
+     "upload_path" : "/upload.php?f=2018",
+     "slave_cam_ip": ""
+    }
 
 **timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 2 seconds)
 
 **upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
 
-**slave_cam_ip**  BETA A GET ping that is made to another IP or host and fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
+**slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
 
@@ -64,6 +64,17 @@ That takes here with fast WiFi about 4 / 5 seconds and connected through a mobil
 To be clear: It just makes a POST push attempt without any checks or whatsoever to a PHP endpoint, that will not upload anything if the image does not arrive entirely, logging a partial upload exception in your server. Other than that it will work allright most of the time being my current fault rate about 1 fail in 20 pictures. 
 For a PHP upload endpoint please check the upload.php sample using my 
 [repository php-gallery](https://github.com/martinberlin/php-gallery) (A bootstrap4 very simple PHP gallery)
+
+### Get involved and fork this
+
+The main idea to build this was to learn more of C++ and IoT specially when dealing with bigger requests as sending an image through this small boards. Challenges are many if you would like to collaborate:
+
+    1. FAILSAFE UPLOAD detect if the upload went wrong and try to repeat it 2 or 3 times giving a signal tothe user when succeded
+    2. EXTEND THIS to work also takimg advantage of Arducam 5Mp and their 8 megas flash memory. That will enable taking pictures offline
+    3. OFFLINE PICTURES adding a flash card reader to this. 
+    4. SYNC OFFLINE TO ONLINE when camera finds an available WIFI
+    
+This are only some of the next goals. But is your camera, your software, so make what you wanr from it and learn in the process.
 
 ### Credits
 
