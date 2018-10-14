@@ -72,7 +72,7 @@ The main idea to build this was to learn more of C++ and IoT specially when deal
 
     1. FAILSAFE UPLOAD detect if the upload went wrong and try to repeat it 2 or 3 times giving
        a signal to the user when succeded
-    2. EXTEND THIS to work also takimg advantage of Arducam 5Mp and their 8 megas flash memory. 
+    2. EXTEND THIS to work also taking advantage of Arducam 5Mp and their 8 megas flash memory. 
        That will enable taking pictures offline up to this native storage capacity.
     3. OFFLINE PICTURES adding a flash card reader to this for the Arducam 2MP
     4. SYNC OFFLINE TO ONLINE when camera finds an available WIFI
