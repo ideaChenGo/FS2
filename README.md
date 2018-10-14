@@ -14,7 +14,7 @@ Press the shooter button and the JPEG will be uploaded to a digital gallery in t
 It's done in two easy steps:
 
     1 . Turn on the camera and connect to CAM-autoconnect through any device, browse 162.168.4.1 
-        and there will greet you the  “WiFi manager”
+        and there will greet you the “WiFi manager”
     2 . Select a WiFi and write the credentials to make a connection
     You are all set, you just need to enable the hotspot and the camera will reset and connect to it automatically.
 
@@ -71,10 +71,10 @@ For a PHP upload endpoint please check the upload.php sample using my
 The main idea to build this was to learn more of C++ and IoT specially when dealing with bigger requests as sending an image through this small boards. Challenges are many if you would like to collaborate:
 
     1. FAILSAFE UPLOAD detect if the upload went wrong and try to repeat it 2 or 3 times giving
-       a signal tothe user when succeded
+       a signal to the user when succeded
     2. EXTEND THIS to work also takimg advantage of Arducam 5Mp and their 8 megas flash memory. 
-       That will enable taking pictures offline
-    3. OFFLINE PICTURES adding a flash card reader to this. 
+       That will enable taking pictures offline up to this native storage capacity.
+    3. OFFLINE PICTURES adding a flash card reader to this for the Arducam 2MP
     4. SYNC OFFLINE TO ONLINE when camera finds an available WIFI
     
 This are only some of the next goals. But is your camera, your software, so make what you want from it and learn in the process.
