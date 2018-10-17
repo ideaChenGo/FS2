@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css">
+    <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+    <meta name='viewport' content='width=device-width,initial-scale=1'>
+    <meta charset="UTF-8">
+</head>
+
+<body>
+<main role='main'>
+    <div class='container-fluid'>
+        <div class='row'>
+            <!-- TODO: Handle replacement tags like @localDomain -->
+            <div class='col-md-12'><h4>cam.local</h4>
+
+                <form id='f2' action='/stream' target='frame' method='GET'>
+                    <input type='submit' value='Stream' class='btn btn-light'>
+                    <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
+                </form>
+
+                <form id='f1' action='/capture' target='frame' method='GET'>
+                    <div class='row' style="margin-top:.5em;margin-bottom:.5em">
+                        <div class='col-md-12'>
+                            <input type='submit' value='PHOTO' class='btn btn-lg btn-dark form-control'>
+                        </div>
+                    </div>
+                </form>
+
+                <iframe name='frame' width='100%' height='400' frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+
+<script>
+    $(function () {
+        $('#timelapse').bootstrapToggle({
+            on: 'Timelapse ON', off: 'Timelapse OFF'
+        });
+        $('#timelapse').change(function() {
+            if ($(this).prop('checked')) {
+                frame.location = '/timelapse/start';
+            } else {
+                frame.location = '/timelapse/stop';
+            }
+        })
+    });
+
+</script>

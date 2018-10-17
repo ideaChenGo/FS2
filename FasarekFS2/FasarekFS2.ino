@@ -258,7 +258,10 @@ Serial.println("mounted file system");
   // Start the server
   server.on("/capture", HTTP_GET, serverCapture);
   server.on("/stream", HTTP_GET, serverStream);
-  server.onNotFound(handleNotFound);
+  server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
+  server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
+
+  server.onNotFound(handleWebServerRoot);
   server.begin();
   Serial.println(F("Server started"));
 
@@ -477,26 +480,20 @@ void serverStream() {
 /**
  * This is the home page and also the page that comes when a 404 is generated
  */
-void handleNotFound() {
-  String headers = "<head><link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css\">";
-  headers += "<meta name='viewport' content='width=device-width,initial-scale=1'></head>";
-  String html = "<body><main role='main'><div class='container-fluid'><div class='row'>";
-  html += "<div class='col-md-12'><h4>" + String(localDomain) + ".local</h4>";
-
-    html += "<form id='f2' action='/stream' target='frame' method='GET'>";
-  html += "<input type='submit' value='Stream' class='btn btn-light'>";
-  html += "</form>";
+void handleWebServerRoot() {
+  String fileName = "/ux.html";
   
-  html += "<form id='f1' action='/capture' target='frame' method='GET'>";
-  html += "<div class='row'><div class='col-md-12'>";
-  html += "<input type='submit' value='PHOTO' class='btn btn-lg btn-dark form-control'>";
-  html += "</div></div></form>";
+  if (SPIFFS.exists(fileName)) {
+    File file = SPIFFS.open(fileName, "r");
+    server.streamFile(file, getContentType(fileName));
+    file.close();
+  } else {
+    Serial.println("Could not read "+fileName+" from SPIFFS");
+    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
+    return;
+  }
   
-  html += "<iframe name='frame' width='800' height='400'></iframe>";
-  html += "</div></div></div></main>";
-  html += "</body>";
-  server.send(200, "text/html", headers + html);
-
+  server.send(200, "text/html");
 }
 
 void configModeCallback (WiFiManager *myWiFiManager) {
@@ -546,6 +543,36 @@ void shutterPing() {
       return;
     }
   }
+}
+
+void serverStartTimelapse() {
+    digitalWrite(ledStatusTimelapse, HIGH);
+    Serial.println("long click: Enable timelapse");
+    captureTimeLapse = true;
+    lastTimeLapse = millis() + timelapseMillis;
+    server.send(200, "text/html", "<div id='m'>Start Timelapse</div>"+ javascriptFadeMessage);
+}
+
+void serverStopTimelapse() {
+    digitalWrite(ledStatusTimelapse, LOW);
+    Serial.println("Disable timelapse");
+    captureTimeLapse = false;
+    server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
+}
+
+String getContentType(String filename) {
+  if (server.hasArg("download")) {
+    return "application/octet-stream";
+  } else if (filename.endsWith(".htm")) {
+    return "text/html";
+  } else if (filename.endsWith(".html")) {
+    return "text/html";
+  } else if (filename.endsWith(".css")) {
+    return "text/css";
+  } else if (filename.endsWith(".js")) {
+    return "application/javascript";
+  } 
+  return "text/plain";
 }
 
 void loop() {
