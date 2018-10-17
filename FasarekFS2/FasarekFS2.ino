@@ -1,9 +1,12 @@
-// ArduCAM Mini demo (C)2017 Lee (Arduino to Wemos communications made by Lee)
-// Web: http://www.ArduCAM.com
-// The sketch will do the following tasks:
-// 1. Set the camera to JPEG output mode.
-// 2. if server.on("/capture", HTTP_GET, serverCapture),it can take photo and send to the Web.
-// 3.if server.on("/stream", HTTP_GET, serverStream),it can take photo continuously as video streaming and send to the Web.
+// Extended from ArduCAM Mini demo (C)2017 Lee      (Espressif 8266 to Wemos made by Lee)
+// Project Website:  https://fasarek.de             ArduCAM Web:   http://www.ArduCAM.com
+//  ______ _____ ___                                https://github.com/martinberlin/FS2 
+// |  ____/ ____|__ \ 
+// | |__ | (___    ) |
+// |  __| \___ \  / / 
+// | |    ____) |/ /_ 
+// |_|   |_____/|____|     WiFi instant Camera
+                   
 
 // This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
 #include <FS.h> //this needs to be first, or it all crashes and burns...
@@ -496,18 +499,6 @@ void handleNotFound() {
 
 }
 
-
-void loop() {
-  server.handleClient();
-  buttonShutter.loop();
-  if (captureTimeLapse && millis() >= lastTimeLapse) {
-    lastTimeLapse += timelapseMillis;
-    serverCapture();
-    Serial.println("Timelapse captured");
-  }
-}
-
-
 void configModeCallback (WiFiManager *myWiFiManager) {
   digitalWrite(ledStatus, HIGH);
   message = "CAM can't get online. Entering config mode. Please connect to access point "+String(configModeAP);
@@ -557,3 +548,12 @@ void shutterPing() {
   }
 }
 
+void loop() {
+  server.handleClient();
+  buttonShutter.loop();
+  if (captureTimeLapse && millis() >= lastTimeLapse) {
+    lastTimeLapse += timelapseMillis;
+    serverCapture();
+    Serial.println("Timelapse captured");
+  }
+}
