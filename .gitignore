@@ -1,6 +1,6 @@
 # Prerequisites
 *.d
-/data/config.json
+/FasarekFS2/data/config.json
 # Compiled Object files
 *.slo
 *.lo
