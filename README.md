@@ -44,6 +44,7 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 
    The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image responding with the image full URL. For an example about this please check the script upload.php in my [repository php-gallery](https://github.com/martinberlin/php-gallery)
 
+
 ### config.json
 
     {
