@@ -9,7 +9,7 @@
                    
 
 // This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
-#include <FS.h> //this needs to be first, or it all crashes and burns...
+#include <FS.h> // This needs to be first since it's SPIFFS where we save the camera config.json
 
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
@@ -21,7 +21,8 @@
 #include <SPI.h>
 #include "memorysaver.h"
 #include "Button2.h";
-#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
+#include <ArduinoJson.h>
+
 //Note on memorysaver selected:
 // #define OV2640_MINI_2MP
 // And on Step 2: #define OV2640_CAM
@@ -57,7 +58,7 @@ String javascriptFadeMessage = "<script>setTimeout(function(){document.getElemen
 
 
 long full_length;
-static const size_t bufferSize = 4096;
+static const size_t bufferSize = 256;
 static uint8_t buffer[bufferSize] = {0xFF};
 
 // UPLOAD Settings
@@ -79,7 +80,7 @@ char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/camera-uploads/upload.php?f=2018";
 char slave_cam_ip[16] = "";
 
-
+File fsFile;
 
 void setup() {
     // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
@@ -283,11 +284,7 @@ String camCapture(ArduCAM myCAM) {
     Serial.println(F("fifo_length = 0"));
     return "Could not read fifo (length is 0)";
   }
-  // Check if gpio 16 (Chip Select) is not taking a picture already
-  if (digitalRead(CS) == LOW) {
-    Serial.println("CS is LOW: Taking a picture already");
-    return "Taking a picture already";
-  }
+
   myCAM.CS_LOW();
   myCAM.set_fifo_burst();
   SPI.transfer(0xFF);
@@ -317,15 +314,24 @@ String camCapture(ArduCAM myCAM) {
     client.println();
     client.print(start_request);
 
+fsFile = SPIFFS.open("/test.jpg", "w");
+
+
   // Read image data from Arducam mini and send away to internet
   static uint8_t buffer[bufferSize] = {0xFF};
   while (len) {
       size_t will_copy = (len < bufferSize) ? len : bufferSize;
+      
       SPI.transferBytes(&buffer[0], &buffer[0], will_copy);
-      if (!client.connected()) break;
-      client.write(&buffer[0], will_copy);
+      //We won't break the WiFi upload if client disconnects since this is also for SPIFFS upload
+      if (client.connected()) {
+         client.write(&buffer[0], will_copy);
+      }
+      fsFile.write(&buffer[0], will_copy);
       len -= will_copy;
       }
+      
+  fsFile.close();
   
      client.println(end_request);
      //client.flush();
