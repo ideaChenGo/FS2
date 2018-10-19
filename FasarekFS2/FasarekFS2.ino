@@ -271,6 +271,7 @@ Serial.println("mounted file system");
   server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
   server.on("/fs/list", HTTP_GET, serverListFiles);
   server.on("/fs/download", HTTP_GET, serverDownloadFile);
+  server.on("/fs/delete", HTTP_GET, serverDeleteFile);
   
   server.onNotFound(handleWebServerRoot);
   server.begin();
@@ -618,11 +619,16 @@ void serverListFiles() {
   }
   
     String body = "<table class='table'>";
-    body += "<tr><th>File</th><th>Size</th></tr>";
+    body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
   Dir dir = SPIFFS.openDir("/");
   String fileUnit;
+  
   while (dir.next()) {
     String fileName = dir.fileName();
+    char fileChar[32];
+    fileName.toCharArray(fileChar, 32);
+    if (!isServerListable(fileChar)) continue;
+    
     float fileSize;
     if (dir.fileSize()<1024) {
         fileUnit = " bytes";
@@ -634,8 +640,13 @@ void serverListFiles() {
     fileName.remove(0,1);
     body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
     body += fileName+"</a></td>";
-    body += "<td>"+String(fileSize)+fileUnit;
-    body += "</td></tr>";
+    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
+    body += "<td>";
+    if (isServerDeleteable(fileName)) {
+      body += "<a class='btn btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
+    }
+    body += "</td>";
+    body += "</tr>";
   }
     
   body += "</table>";
@@ -647,6 +658,7 @@ void serverListFiles() {
   body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
 
   webTemplate.replace("{{localDomain}}", localDomain);
+  webTemplate.replace("{{home}}", "Camera UI");
   webTemplate.replace("{{body}}", body);
   
   server.send(200, "text/html", webTemplate);
@@ -672,6 +684,45 @@ void serverDownloadFile() {
   } else {
     server.send(404, "text/html", "No server parameters received.");
   }
+}
+
+void serverDeleteFile() {
+  if (server.args() > 0 ) { 
+    if (server.hasArg("f")) {
+      String filename = server.arg(0);
+      if(isServerDeleteable(filename)) {
+         SPIFFS.remove("/"+filename);
+      }
+      server.sendHeader("Location", "/fs/list", true);
+      server.send (302, "text/plain", "");
+    } else {
+      server.send(404, "text/html", "f parameter not received by GET.");
+    }
+  }
+}
+
+bool isServerDeleteable(String filename) {
+  if (filename == "config.json"
+    ||filename == "template.html"
+    ||filename == "ux.html")
+  {
+    return false;
+  } 
+  return true;
+}
+  
+bool isServerListable(char* filename) {
+  //Serial.println("isServerListable: "+String(filename));
+  int8_t len = strlen(filename);
+  bool result;
+  if (  strstr(strlwr(filename + (len - 4)), ".jpg")
+     || strstr(strlwr(filename + (len - 5)), ".json")
+    ) {
+    result = true;
+  } else {
+    result = false;
+  }
+  return result;
 }
 
 void loop() {
