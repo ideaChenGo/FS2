@@ -10,7 +10,7 @@
 
 // This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
 #include <FS.h> // This needs to be first since it's SPIFFS where we save the camera config.json
-
+#include <EEPROM.h>
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -21,7 +21,7 @@
 #include <SPI.h>
 #include "memorysaver.h"
 #include "Button2.h";
-#include <ArduinoJson.h>
+#include <ArduinoJson.h> //Any version > 5.13.3 gave me an error on swap function
 
 //Note on memorysaver selected:
 // #define OV2640_MINI_2MP
@@ -58,6 +58,7 @@ String javascriptFadeMessage = "<script>setTimeout(function(){document.getElemen
 
 
 long full_length;
+// Note if saving to SD bufferSize needs to be 256, otherwise won't save
 static const size_t bufferSize = 256;
 static uint8_t buffer[bufferSize] = {0xFF};
 
@@ -79,7 +80,7 @@ char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/camera-uploads/upload.php?f=2018";
 char slave_cam_ip[16] = "";
-
+int photoCount;
 File fsFile;
 
 void setup() {
@@ -90,7 +91,11 @@ void setup() {
     if (digitalRead(D3) == LOW) {
       resetWifiSettings = true;
     }
+  EEPROM.begin(10);
+  photoCount = EEPROM.read(0);         // PhotoCount
+  
   Serial.begin(115200);
+  Serial.println("photoCount value is: "+String(photoCount));
   //read configuration from FS json
   Serial.println("mounting FS...");
 
@@ -261,7 +266,9 @@ Serial.println("mounted file system");
   server.on("/stream", HTTP_GET, serverStream);
   server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
   server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
-
+  server.on("/fs/list", HTTP_GET, serverListFiles);
+  server.on("/fs/download", HTTP_GET, serverDownloadFile);
+  
   server.onNotFound(handleWebServerRoot);
   server.begin();
   Serial.println(F("Server started"));
@@ -276,7 +283,7 @@ void start_capture() {
 
 
 String camCapture(ArduCAM myCAM) {
-  
+  photoCount = EEPROM.read(0);
   uint32_t len  = myCAM.read_fifo_length();
   
   if (len == 0 ) //0 kb
@@ -314,7 +321,7 @@ String camCapture(ArduCAM myCAM) {
     client.println();
     client.print(start_request);
 
-fsFile = SPIFFS.open("/test.jpg", "w");
+fsFile = SPIFFS.open("/"+String(photoCount)+".jpg", "w");
 
 
   // Read image data from Arducam mini and send away to internet
@@ -327,15 +334,22 @@ fsFile = SPIFFS.open("/test.jpg", "w");
       if (client.connected()) {
          client.write(&buffer[0], will_copy);
       }
-      fsFile.write(&buffer[0], will_copy);
-      len -= will_copy;
+      if (fsFile) {
+        fsFile.write(&buffer[0], will_copy);
       }
-      
-  fsFile.close();
+      len -= will_copy;
+  }
+
+  if (fsFile) {
+    fsFile.close();
+  }
   
-     client.println(end_request);
-     //client.flush();
-     myCAM.CS_HIGH(); 
+  photoCount++;
+  Serial.println("photoCount saved into EEPROM: "+String(photoCount));
+  EEPROM.write(0, photoCount);
+  
+  client.println(end_request);
+  myCAM.CS_HIGH(); 
 
   bool   skip_headers = true;
   String rx_line;
@@ -579,6 +593,59 @@ String getContentType(String filename) {
     return "application/javascript";
   } 
   return "text/plain";
+}
+
+void serverListFiles() {
+    String str = "\r\n<table>\r\n<tr><th>File</th><th>Size</th></tr>";
+Dir dir = SPIFFS.openDir("/");
+String fileUnit;
+while (dir.next()) {
+    String fileName = dir.fileName();
+    float fileSize;
+    if (dir.fileSize()<1024) {
+        fileUnit = " bytes";
+        fileSize = dir.fileSize();
+        } else {
+          fileUnit = " Kb";
+          fileSize = dir.fileSize()/1024;
+        }
+    fileName.remove(0,1);
+    str += "<tr><td><a href='/fs/download?f="+fileName+"'>";
+    str += fileName+"</a></td>\r\n";
+    str += "<td>"+String(fileSize)+fileUnit;
+    str += "</td></tr><br>";
+    }
+    
+  str += "</table>";
+
+  FSInfo fs_info;
+  SPIFFS.info(fs_info);
+  str += "<h3>Total KB: "+String(fs_info.totalBytes/1024)+" Kb</h3>";
+  str += "<h3>Used KB: "+String(fs_info.usedBytes/1024)+" Kb</h3>";
+  str += "<h3>Avail KB: "+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</h3>";
+  server.send(200, "text/html", str);
+}
+
+void serverDownloadFile() {
+  if (server.args() > 0 ) { 
+    if (server.hasArg("f")) {
+      String filename = server.arg(0);
+      File download = SPIFFS.open("/"+filename, "r");
+      if (download) {
+        server.sendHeader("Content-Type", "text/text");
+        server.sendHeader("Content-Disposition", "attachment; filename="+filename);
+        server.sendHeader("Connection", "close");
+        server.streamFile(download, "application/octet-stream");
+        download.close();
+      } else {
+        server.send(404, "text/html", "file: "+ filename +" not found.");
+      }
+    } else {
+      server.send(404, "text/html", "f parameter not received by GET.");
+    }
+  } else {
+    server.send(404, "text/html", "No server parameters received.");
+  }
 }
 
 void loop() {
