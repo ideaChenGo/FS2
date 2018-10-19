@@ -80,8 +80,11 @@ char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/camera-uploads/upload.php?f=2018";
 char slave_cam_ip[16] = "";
-int photoCount;
+
+// SPIFFS and memory to save photos
 File fsFile;
+int photoCount;
+String webTemplate = "";
 
 void setup() {
     // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
@@ -596,10 +599,29 @@ String getContentType(String filename) {
 }
 
 void serverListFiles() {
-    String str = "\r\n<table>\r\n<tr><th>File</th><th>Size</th></tr>";
-Dir dir = SPIFFS.openDir("/");
-String fileUnit;
-while (dir.next()) {
+  String fileName = "/template.html";
+  webTemplate = "";
+  
+  if (SPIFFS.exists(fileName)) {
+    File file = SPIFFS.open(fileName, "r");
+    //server.streamFile(file, getContentType(fileName));
+    
+    while (file.available() != 0) {  
+      webTemplate += file.readStringUntil('\n');  
+    }
+    file.close();
+    //Serial.println(">>>>> webTemplate read: "+webTemplate);
+  } else {
+    Serial.println("Could not read "+fileName+" from SPIFFS");
+    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
+    return;
+  }
+  
+    String body = "<table class='table'>";
+    body += "<tr><th>File</th><th>Size</th></tr>";
+  Dir dir = SPIFFS.openDir("/");
+  String fileUnit;
+  while (dir.next()) {
     String fileName = dir.fileName();
     float fileSize;
     if (dir.fileSize()<1024) {
@@ -610,20 +632,24 @@ while (dir.next()) {
           fileSize = dir.fileSize()/1024;
         }
     fileName.remove(0,1);
-    str += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-    str += fileName+"</a></td>\r\n";
-    str += "<td>"+String(fileSize)+fileUnit;
-    str += "</td></tr><br>";
-    }
+    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
+    body += fileName+"</a></td>";
+    body += "<td>"+String(fileSize)+fileUnit;
+    body += "</td></tr>";
+  }
     
-  str += "</table>";
+  body += "</table>";
 
   FSInfo fs_info;
   SPIFFS.info(fs_info);
-  str += "<h3>Total KB: "+String(fs_info.totalBytes/1024)+" Kb</h3>";
-  str += "<h3>Used KB: "+String(fs_info.usedBytes/1024)+" Kb</h3>";
-  str += "<h3>Avail KB: "+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</h3>";
-  server.send(200, "text/html", str);
+  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
+  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
+  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
+
+  webTemplate.replace("{{localDomain}}", localDomain);
+  webTemplate.replace("{{body}}", body);
+  
+  server.send(200, "text/html", webTemplate);
 }
 
 void serverDownloadFile() {
