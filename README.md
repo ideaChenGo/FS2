@@ -37,6 +37,7 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System.
    
    Arduino JSON Library. I literally copied WiFi Manager example to build the config.json
+   IMPORTANT: Any version > 5.13.3 gives me an error on compiling. I still didn't found exactly why I would be glad if you make me aware, so please downgrade your Arduino Json lib when compiling this.
 
    *UPDATE the upload API endpoint* in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint that will recive the Post request from the camera.
 
