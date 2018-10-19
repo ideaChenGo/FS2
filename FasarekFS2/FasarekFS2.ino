@@ -58,7 +58,7 @@ String javascriptFadeMessage = "<script>setTimeout(function(){document.getElemen
 
 
 long full_length;
-// Note if saving to SD bufferSize needs to be 256, otherwise won't save
+// Note if saving to SPIFFS bufferSize needs to be 256, otherwise won't save correctly
 static const size_t bufferSize = 256;
 static uint8_t buffer[bufferSize] = {0xFF};
 
