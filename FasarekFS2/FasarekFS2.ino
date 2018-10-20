@@ -21,17 +21,16 @@
 #include <SPI.h>
 #include "memorysaver.h"
 #include "Button2.h";
-#include <ArduinoJson.h> //Any version > 5.13.3 gave me an error on swap function
-#include "FS2_functions.h";
+#include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
+#include "FS2_functions.h"; // Helper functions. Includes: HashMap
 
 //Note on memorysaver selected: Switch model to indicated ID. Ex.OV2640 = 5 
 String cameraModel;  // OV2640:5 |  OV5642:3   5MP
-int cameraModelId = 3;
+int cameraModelId = 5;
 
 // set GPIO16 as the slave select :
 const int CS = 16;
-// OV2640_800x600 OV2640_1280x1024 -> last max resolution working OV2640_1600x1200 -> Max. resolution 2MP
-int jpegSize = OV5640_2048x1536; 
+
 // When timelapse is on will capture picture every N minutes
 boolean captureTimeLapse;
 boolean isStreaming = false;
@@ -78,10 +77,19 @@ ESP8266WebServer server(80);
 // Automatic switch between 2MP and 5MP models
 ArduCAM myCAM(cameraModelId, CS);
 
+// jpeg_size HashMap
+const byte HASH_SIZE = 5; 
+HashType<char*,int> hashRawArray[HASH_SIZE]; 
+// Handles the storage [search,retrieve,insert]
+HashMap<char*,int> jpegSizeMap = HashMap<char*,int>( hashRawArray, HASH_SIZE ); 
+
+// Definition for WiFi parameter label
+String jpegSizeLabel;
 char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/camera-uploads/upload.php?f=2018";
 char slave_cam_ip[16] = "";
+char jpeg_size[10]    = "1600x1200";
 
 // SPIFFS and memory to save photos
 File fsFile;
@@ -95,20 +103,42 @@ struct config_t
 void setup() {
   if (cameraModelId == 5) {
     cameraModel = "OV2640";
+        //Setup hashmap for this camera
+    jpegSizeMap[0]("640x480", 4);
+    jpegSizeMap[1]("800x600", 5);
+    jpegSizeMap[2]("1024x768", 6);
+    jpegSizeMap[3]("1280x1024", 7);
+    jpegSizeMap[4]("1600x1200", 8);
+    jpegSizeLabel = "640x480|800x600|1024x768|1280x1024|1600x1200";
   }
   if (cameraModelId == 3) {
     cameraModel = "OV5642";
+    jpegSizeMap[0]("1024x768", 2);
+    jpegSizeMap[1]("1280x960", 3);
+    jpegSizeMap[2]("1600x1200", 4);
+    jpegSizeMap[3]("2048x1536", 5);
+    jpegSizeMap[4]("2592x1944", 6);
+    jpegSizeLabel = "1024x768|1280x1024|1600x1200|2048x1536|2592x1944";
   }
   EEPROM.begin(12);
-    // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
+  Serial.begin(115200);
+  
+  // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
   pinMode(CS, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
- 
+  
+  // Read photoCount from EEPROM
   EEPROM_readAnything(0, memory);
   
-  Serial.begin(115200);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
+  
+  //Serial.println(jpegSizeMap.getValueOf("2592x1944") ); // Works
+  Serial.println("OV2640_640x480 "+String(OV2640_640x480));
+  Serial.println("OV2640_800x600 "+String(OV2640_800x600));
+  Serial.println("OV2640_1024x768 "+String(OV2640_1024x768));
+  Serial.println("OV2640_1280x1024 "+String(OV2640_1280x1024));
+  Serial.println("OV2640_1600x1200 "+String(OV2640_1600x1200));
   //read configuration from FS json
   Serial.println("mounting FS...");
 
@@ -263,7 +293,8 @@ if (cameraModel == "OV2640") {
     Serial.println(F("OV2640 detected."));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
-    myCAM.OV2640_set_JPEG_size(jpegSize); 
+    // TODO: Read this from config.json and match id for OV2640
+    myCAM.OV2640_set_JPEG_size(1); 
   }
 }
 
