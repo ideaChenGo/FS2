@@ -144,24 +144,27 @@ Serial.println("mounted file system");
 //end read
   
   std::vector<const char *> menu = {"wifi","wifinoscan","info","sep","restart"};
-
-
-// The extra parameters to be configured (can be either global or just in the setup)
+  // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
   WiFiManagerParameter param_timelapse("timelapse", "Timelapse in secs", timelapse,4);
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
-
+  
  while (digitalRead(D3) == LOW)
  {
+  Serial.println(">>>>>>>>>D3 is LOW");
      digitalWrite(ledStatusTimelapse, ledStatusTimelapseBright);
      onlineMode = false;
-     delay(1);
+     delay(100);
+     break;
  }
+ 
  if (onlineMode) {
-    WiFiManager wm;
+  Serial.println(">>>>>>>>>ONLINE Mode");
+
+  WiFiManager wm;
   // TODO: Add a way to force this 
   //wm.resetSettings();
   wm.setMenu(menu);
@@ -177,6 +180,8 @@ Serial.println("mounted file system");
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
    wm.autoConnect(configModeAP);
+ } else {
+  Serial.println(">>>>>>>>>OFFLINE Mode");
  }
 
   //read updated parameters
@@ -264,18 +269,18 @@ Serial.println("mounted file system");
   //   the fully-qualified domain name is "esp8266.local"
   // - second argument is the IP address to advertise
   //   we send our IP address on the WiFi network
-  if (!MDNS.begin(localDomain)) {
-    Serial.println("Error setting up MDNS responder!");
-    while(1) { 
-      delay(500);
-    }
-  }
-  // Add service to MDNS-SD
-  MDNS.addService("http", "tcp", 80);
-  
-  Serial.println("mDNS responder started");
-  // Start the server
   if (onlineMode) {
+    if (!MDNS.begin(localDomain)) {
+      Serial.println("Error setting up MDNS responder!");
+      while(1) { 
+        delay(500);
+      }
+    }
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+    
+    Serial.println("mDNS responder started");
+  
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
     server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
