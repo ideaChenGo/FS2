@@ -31,7 +31,7 @@ int cameraModelId = 3;
 // set GPIO16 as the slave select :
 const int CS = 16;
 // OV2640_800x600 OV2640_1280x1024 -> last max resolution working OV2640_1600x1200 -> Max. resolution 2MP
-int jpegSize = OV2640_1600x1200; 
+int jpegSize = OV5640_2048x1536; 
 // When timelapse is on will capture picture every N minutes
 boolean captureTimeLapse;
 boolean isStreaming = false;
@@ -251,11 +251,6 @@ Serial.println("mounted file system");
     while (1);
   }
 
-// General camera settings
-//Change to JPEG capture mode and initialize the OV2640 module
-myCAM.set_format(JPEG);
-myCAM.InitCAM();
-
 if (cameraModel == "OV2640") {
   //Check if the camera module type is OV2640
   myCAM.wrSensorReg8_8(0xff, 0x01);
@@ -266,11 +261,14 @@ if (cameraModel == "OV2640") {
     Serial.println(F("Can't find OV2640 module!"));
   } else {
     Serial.println(F("OV2640 detected."));
+    myCAM.set_format(JPEG);
+    myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpegSize); 
   }
 }
 
   if (cameraModel == "OV5642") {
+    temp=SPI.transfer(0x00);
     myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
 //Check if the camera module type is OV5642
     myCAM.wrSensorReg16_8(0xff, 0x01);
@@ -281,13 +279,16 @@ if (cameraModel == "OV2640") {
      Serial.println("Can't find OV5642 module!");
    } else {
      Serial.println("OV5642 detected.");
+     myCAM.set_format(JPEG);
+     myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
      myCAM.write_reg(3, 2);   //VSYNC is active HIGH
-     myCAM.OV5642_set_JPEG_size(jpegSize);
+     // TODO: jpegsize is hardcoded
+     myCAM.OV5642_set_JPEG_size(OV5642_1600x1200);
    }
   }
 
-  Serial.println("JPEG_Size:"+String(jpegSize));
+  Serial.println(">>>>>>>>>>> JPEG_Size:"+String(OV5642_2592x1944));
 
   myCAM.clear_fifo_flag();
 
