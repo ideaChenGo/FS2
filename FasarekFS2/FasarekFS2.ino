@@ -40,13 +40,16 @@ boolean captureTimeLapse;
 boolean isStreaming = false;
 static unsigned long lastTimeLapse;
 unsigned long timelapseMillis;
-//flag for saving data
+// Flag for saving data in config.json
 bool shouldSaveConfig = false;
 
 // Outputs / Inputs (Shutter button D3)
 Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
+
+// Led default PWMs
+int ledStatusTimelapseBright = 200;
 
 WiFiClient client;
 // Default config mode Access point
@@ -150,13 +153,17 @@ Serial.println("mounted file system");
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
-  
-  WiFiManager wm;
-  if (resetWifiSettings) {
-    // Reset saved settings if started with shutter button down
-    wm.resetSettings();
-    delay(500);ESP.restart();
-  }
+
+ while (digitalRead(D3) == LOW)
+ {
+     digitalWrite(ledStatusTimelapse, ledStatusTimelapseBright);
+     onlineMode = false;
+     delay(1);
+ }
+ if (onlineMode) {
+    WiFiManager wm;
+  // TODO: Add a way to force this 
+  //wm.resetSettings();
   wm.setMenu(menu);
   // Add the defined parameters to wm
   wm.addParameter(&param_timelapse);
@@ -169,14 +176,6 @@ Serial.println("mounted file system");
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-
- while (digitalRead(D3) == LOW)
- {
-     digitalWrite(ledStatus, HIGH);
-     onlineMode = false;
-     delay(1);
- }
- if (onlineMode) {
    wm.autoConnect(configModeAP);
  }
 
@@ -417,7 +416,7 @@ void serverCapture() {
   Serial.print(F("capture total_time used (in miliseconds):"));
   Serial.println(total_time, DEC);
 
-  if (slave_cam_ip != "") {
+  if (slave_cam_ip != "" && onlineMode) {
     shutterPing();
   }
   total_time = 0;
@@ -432,7 +431,7 @@ void serverCapture() {
   
   digitalWrite(ledStatus, LOW);
   if (onlineMode) {
-  server.send(200, "text/html", "<div id='m'>Photo taken! "+imageUrl+
+    server.send(200, "text/html", "<div id='m'>Photo taken! "+imageUrl+
               "<br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
   }
 }
@@ -740,7 +739,9 @@ bool isServerListable(char* filename) {
 }
 
 void loop() {
-  server.handleClient();
+   if (onlineMode) { 
+    server.handleClient(); 
+   }
   buttonShutter.loop();
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
