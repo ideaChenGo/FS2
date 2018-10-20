@@ -24,15 +24,10 @@
 #include <ArduinoJson.h> //Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h";
 
-//Note on memorysaver selected:
-String cameraModel = "OV5642";  // OV2640
+//Note on memorysaver selected: Switch model to indicated ID. Ex.OV2640 = 5 
+String cameraModel;  // OV2640:5 |  OV5642:3   5MP
+int cameraModelId = 3;
 
-// #define OV2640_MINI_2MP
-// And on Step 2: #define OV2640_CAM
-//This demo can only work on OV2640_MINI_2MP or OV5642_MINI_5MP_PLUS
-#if !(defined (OV5642_MINI_5MP_PLUS))
-  #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
-#endif
 // set GPIO16 as the slave select :
 const int CS = 16;
 // OV2640_800x600 OV2640_1280x1024 -> last max resolution working OV2640_1600x1200 -> Max. resolution 2MP
@@ -69,9 +64,9 @@ static const size_t bufferSize = 256;
 static uint8_t buffer[bufferSize] = {0xFF};
 
 // UPLOAD Settings
-  String start_request = "";
-  String boundary = "_cam_";
-  String end_request = "\n--"+boundary+"--\n";
+String start_request = "";
+String boundary = "_cam_";
+String end_request = "\n--"+boundary+"--\n";
  
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
@@ -80,7 +75,8 @@ bool resetWifiSettings = false;
 
 ESP8266WebServer server(80);
 
-ArduCAM myCAM(OV2640, CS);
+// Automatic switch between 2MP and 5MP models
+ArduCAM myCAM(cameraModelId, CS);
 
 char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
@@ -97,6 +93,12 @@ struct config_t
 } memory;
 
 void setup() {
+  if (cameraModelId == 5) {
+    cameraModel = "OV2640";
+  }
+  if (cameraModelId == 3) {
+    cameraModel = "OV5642";
+  }
   EEPROM.begin(12);
     // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
   pinMode(CS, OUTPUT);
@@ -106,6 +108,7 @@ void setup() {
   EEPROM_readAnything(0, memory);
   
   Serial.begin(115200);
+  Serial.println(">>>>> Selected Camera model is: "+cameraModel);
   //read configuration from FS json
   Serial.println("mounting FS...");
 
@@ -256,8 +259,9 @@ myCAM.InitCAM();
 if (cameraModel == "OV2640") {
   //Check if the camera module type is OV2640
   myCAM.wrSensorReg8_8(0xff, 0x01);
-  //myCAM.rdSensorReg8_8(OV2640_CHIPID_HIGH, &vid);
-  //myCAM.rdSensorReg8_8(OV2640_CHIPID_LOW, &pid);
+  myCAM.rdSensorReg8_8(10, &vid);
+  myCAM.rdSensorReg8_8(11, &pid);
+
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
     Serial.println(F("Can't find OV2640 module!"));
   } else {
@@ -265,18 +269,20 @@ if (cameraModel == "OV2640") {
     myCAM.OV2640_set_JPEG_size(jpegSize); 
   }
 }
+
   if (cameraModel == "OV5642") {
-      myCAM.clear_bit(ARDUCHIP_GPIO,GPIO_PWDN_MASK); //disable low power
-  delay(100);
+    myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
 //Check if the camera module type is OV5642
-  myCAM.wrSensorReg16_8(0xff, 0x01);
-  myCAM.rdSensorReg16_8(OV5642_CHIPID_HIGH, &vid);
-  myCAM.rdSensorReg16_8(OV5642_CHIPID_LOW, &pid);
+    myCAM.wrSensorReg16_8(0xff, 0x01);
+    myCAM.rdSensorReg16_8(12298, &vid);
+    myCAM.rdSensorReg16_8(12299, &pid);
+
    if((vid != 0x56) || (pid != 0x42)) {
      Serial.println("Can't find OV5642 module!");
    } else {
      Serial.println("OV5642 detected.");
-     myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);   //VSYNC is active HIGH
+     // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
+     myCAM.write_reg(3, 2);   //VSYNC is active HIGH
      myCAM.OV5642_set_JPEG_size(jpegSize);
    }
   }
