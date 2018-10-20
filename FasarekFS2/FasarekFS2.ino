@@ -49,7 +49,7 @@ const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
 
 // Led default PWMs
-int ledStatusTimelapseBright = 200;
+int ledStatusBright = 200;
 
 WiFiClient client;
 // Default config mode Access point
@@ -155,7 +155,7 @@ Serial.println("mounted file system");
  while (digitalRead(D3) == LOW)
  {
   Serial.println(">>>>>>>>>D3 is LOW");
-     digitalWrite(ledStatusTimelapse, ledStatusTimelapseBright);
+     digitalWrite(ledStatus, ledStatusBright);
      onlineMode = false;
      delay(100);
      break;
@@ -436,8 +436,8 @@ void serverCapture() {
   
   digitalWrite(ledStatus, LOW);
   if (onlineMode) {
-    server.send(200, "text/html", "<div id='m'>Photo taken! "+imageUrl+
-              "<br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
+    server.send(200, "text/html", "<div id='m'><small>"+imageUrl+
+              "</small><br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
   }
 }
 
