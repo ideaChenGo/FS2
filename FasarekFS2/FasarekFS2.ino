@@ -22,6 +22,7 @@
 #include "memorysaver.h"
 #include "Button2.h";
 #include <ArduinoJson.h> //Any version > 5.13.3 gave me an error on swap function
+#include "FS2_functions.h";
 
 //Note on memorysaver selected:
 // #define OV2640_MINI_2MP
@@ -83,22 +84,23 @@ char slave_cam_ip[16] = "";
 
 // SPIFFS and memory to save photos
 File fsFile;
-int photoCount;
 String webTemplate = "";
+bool onlineMode = true;
+struct config_t
+{
+    int photoCount;
+} memory;
 
 void setup() {
+  EEPROM.begin(12);
     // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
   pinMode(CS, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
-    if (digitalRead(D3) == LOW) {
-      resetWifiSettings = true;
-    }
-  EEPROM.begin(10);
-  photoCount = EEPROM.read(0);         // PhotoCount
+ 
+  EEPROM_readAnything(0, memory);
   
   Serial.begin(115200);
-  Serial.println("photoCount value is: "+String(photoCount));
   //read configuration from FS json
   Serial.println("mounting FS...");
 
@@ -166,8 +168,17 @@ Serial.println("mounted file system");
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
-  wm.setDebugOutput(false); 
-  wm.autoConnect(configModeAP);
+  wm.setDebugOutput(false);
+
+ while (digitalRead(D3) == LOW)
+ {
+     digitalWrite(ledStatus, HIGH);
+     onlineMode = false;
+     delay(1);
+ }
+ if (onlineMode) {
+   wm.autoConnect(configModeAP);
+ }
 
   //read updated parameters
   //timelapse = 60; // TODO: Pending convert to INT param_timelapse.getValue()
@@ -265,18 +276,19 @@ Serial.println("mounted file system");
   
   Serial.println("mDNS responder started");
   // Start the server
-  server.on("/capture", HTTP_GET, serverCapture);
-  server.on("/stream", HTTP_GET, serverStream);
-  server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
-  server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
-  server.on("/fs/list", HTTP_GET, serverListFiles);
-  server.on("/fs/download", HTTP_GET, serverDownloadFile);
-  server.on("/fs/delete", HTTP_GET, serverDeleteFile);
-  
-  server.onNotFound(handleWebServerRoot);
-  server.begin();
-  Serial.println(F("Server started"));
-
+  if (onlineMode) {
+    server.on("/capture", HTTP_GET, serverCapture);
+    server.on("/stream", HTTP_GET, serverStream);
+    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
+    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
+    server.on("/fs/list", HTTP_GET, serverListFiles);
+    server.on("/fs/download", HTTP_GET, serverDownloadFile);
+    server.on("/fs/delete", HTTP_GET, serverDeleteFile);
+    
+    server.onNotFound(handleWebServerRoot);
+    server.begin();
+    Serial.println(F("Server started"));
+  }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
   }
 
@@ -287,7 +299,8 @@ void start_capture() {
 
 
 String camCapture(ArduCAM myCAM) {
-  photoCount = EEPROM.read(0);
+  Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
+
   uint32_t len  = myCAM.read_fifo_length();
   
   if (len == 0 ) //0 kb
@@ -300,11 +313,12 @@ String camCapture(ArduCAM myCAM) {
   myCAM.set_fifo_burst();
   SPI.transfer(0xFF);
 
-  if (client.connect(upload_host, 80)) { 
-    while(client.available()) {
-      String line = client.readStringUntil('\r');
-    }  // Empty wifi receive bufffer
-
+  if (client.connect(upload_host, 80) || onlineMode) { 
+    if (onlineMode) {
+      while(client.available()) {
+        String line = client.readStringUntil('\r');
+       }  // Empty wifi receive bufffer
+    }
   start_request = start_request + 
   "\n--"+boundary+"\n" + 
   "Content-Disposition: form-data; name=\"upload\"; filename=\"CAM.JPG\"\n" + 
@@ -317,16 +331,15 @@ String camCapture(ArduCAM myCAM) {
     Serial.println("POST "+String(upload_path)+" HTTP/1.1");
     Serial.println("Host: "+String(upload_host));
     Serial.println("Content-Length: "+String(full_length)); 
-    
+
     client.println("POST "+String(upload_path)+" HTTP/1.1");
     client.println("Host: "+String(upload_host));
     client.println("Content-Type: multipart/form-data; boundary="+boundary);
     client.print("Content-Length: "); client.println(full_length);
     client.println();
     client.print(start_request);
-
-fsFile = SPIFFS.open("/"+String(photoCount)+".jpg", "w");
-
+    
+  fsFile = SPIFFS.open("/"+String(memory.photoCount)+".jpg", "w");
 
   // Read image data from Arducam mini and send away to internet
   static uint8_t buffer[bufferSize] = {0xFF};
@@ -347,10 +360,9 @@ fsFile = SPIFFS.open("/"+String(photoCount)+".jpg", "w");
   if (fsFile) {
     fsFile.close();
   }
-  
-  photoCount++;
-  Serial.println("photoCount saved into EEPROM: "+String(photoCount));
-  EEPROM.write(0, photoCount);
+
+  memory.photoCount++;
+  EEPROM_writeAnything(0, memory);
   
   client.println(end_request);
   myCAM.CS_HIGH(); 
@@ -419,8 +431,10 @@ void serverCapture() {
   Serial.println(F("CAM send Done."));
   
   digitalWrite(ledStatus, LOW);
+  if (onlineMode) {
   server.send(200, "text/html", "<div id='m'>Photo taken! "+imageUrl+
               "<br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
+  }
 }
 
 
