@@ -16,7 +16,8 @@ It's done in two easy steps:
     1 . Turn on the camera and connect to CAM-autoconnect through any device, browse 162.168.4.1 
         and there will greet you the “WiFi manager”
     2 . Select a WiFi and write the credentials to make a connection
-    You are all set, you just need to enable the hotspot and the camera will reset and connect to it automatically.
+        You are all set, you just need to enable the hotspot and the camera will reset and connect
+        to it automatically.
 
 ### Schematics
 Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress. There you will find also the hardware components that are just a few and you will need a 2.54 small PCB board to fit the components (35*56 mm).
@@ -44,6 +45,9 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    [Button2](https://github.com/LennartHennigs/Button2) Arduino Library to simplify working with buttons. It allows you to use callback functions to track single, double, triple and long clicks.
 
    The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image responding with the image full URL. For an example about this please check the script upload.php in my [repository php-gallery](https://github.com/martinberlin/php-gallery)
+   
+   LAZY to bring together all this?
+   Just ask and I will post somewhere a download link with the compiled binary file!
 
 ### config.json
 
@@ -53,6 +57,8 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
      "upload_path" : "/upload.php?f=2018",
      "slave_cam_ip": ""
     }
+    
+    on develop branch there is a new property called jpeg_size 
 
 **timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 2 seconds)
 
@@ -61,6 +67,16 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 **slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
+
+### Latest experimental features are on develop branch
+Until passing many tests and getting feedback from close friends that have this develop versiom compiled I do not merge it in master to keep a stable version. 
+
+
+New features currently being tested are:
+
+    - Force start in Wifi Manager mode with the route /wifi/reset
+    - Configure Arducam model changing one line
+    - jpegSize resolutiom with the 5 bigger settings added as a new parameter and stored in SPIFFS config.json
 
 ### Known limitations and bugs
 My C++ skills to make a POST are not fail safe, WiFi can be not stable all times, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
