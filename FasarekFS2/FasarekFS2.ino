@@ -69,7 +69,7 @@ String end_request = "\n--"+boundary+"--\n";
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
 bool is_header = false;
-char resetWifiSettings = 0;
+bool resetWifiSettings;
 
 ESP8266WebServer server(80);
 
@@ -106,25 +106,17 @@ void setup() {
   }
   EEPROM.begin(12);
   Serial.begin(115200);
-   while (digitalRead(D3) == LOW)
-   {
-     Serial.println(">>>>>>>>> D3 is LOW");
-     digitalWrite(ledStatus, ledStatusBright);
-     onlineMode = false;
-     // Comment this line if you don't want to reset WiFi stored credentials when starting with Shutter button pressed
-     EEPROM_writeAnything(10, 1);
-     delay(500);
-    }
-  // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
+
+  // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Arducam Chip select)
   pinMode(CS, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
   
   // Read photoCount from EEPROM
   EEPROM_readAnything(0, memory);
-  EEPROM_readAnything(10,resetWifiSettings);
+  EEPROM_readAnything(10, resetWifiSettings);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  Serial.println("resetWifiSettings from EEPROM: "+String(resetWifiSettings));
+  Serial.println("resetWifiSettings from EEPROM: "+resetWifiSettings);
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -810,6 +802,8 @@ void shutterReleased(Button2& btn) {
 void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
     Serial.println("long click: Enable timelapse");
+    // Comment this line if you don't want to reset WiFi stored credentials on next restart after LongClick
+    EEPROM_writeAnything(10, 1);
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
 }
