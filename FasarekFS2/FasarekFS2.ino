@@ -609,7 +609,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 void saveConfigCallback() {
-  EEPROM_writeAnything(10, 0);
+  memory.resetWifiSettings = false;
+  EEPROM_writeAnything(0, memory);
   shouldSaveConfig = true;
   Serial.println("saveConfigCallback fired: WM Saving settings");
  
