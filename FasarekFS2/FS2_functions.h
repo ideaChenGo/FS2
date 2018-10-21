@@ -1,8 +1,5 @@
 typedef unsigned char byte;
 
-#ifndef HASHMAP_H
-#define HASHMAP_H
-
 template <class T> int EEPROM_writeAnything(int ee, const T& value)
 {
     const byte* p = (const byte*)(const void*)&value;
