@@ -93,6 +93,7 @@ bool onlineMode = true;
 struct config_t
 {
     int photoCount;
+    bool resetWifiSettings;
 } memory;
 
 
@@ -114,9 +115,8 @@ void setup() {
   
   // Read photoCount from EEPROM
   EEPROM_readAnything(0, memory);
-  EEPROM_readAnything(10, resetWifiSettings);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  Serial.println("resetWifiSettings from EEPROM: "+resetWifiSettings);
+  Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -169,7 +169,7 @@ void setup() {
 
   WiFiManager wm;
   // TODO: Add a way to force this 
-  if (resetWifiSettings) {
+  if (memory.resetWifiSettings) {
     wm.resetSettings();
   }
   wm.setMenu(menu);
@@ -349,6 +349,7 @@ void setup() {
     server.on("/fs/list", HTTP_GET, serverListFiles);
     server.on("/fs/download", HTTP_GET, serverDownloadFile);
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
+    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
     
     server.onNotFound(handleWebServerRoot);
     server.begin();
@@ -651,19 +652,11 @@ void serverStopTimelapse() {
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
 }
 
-String getContentType(String filename) {
-  if (server.hasArg("download")) {
-    return "application/octet-stream";
-  } else if (filename.endsWith(".htm")) {
-    return "text/html";
-  } else if (filename.endsWith(".html")) {
-    return "text/html";
-  } else if (filename.endsWith(".css")) {
-    return "text/css";
-  } else if (filename.endsWith(".js")) {
-    return "application/javascript";
-  } 
-  return "text/plain";
+void serverResetWifiSettings() {
+    Serial.println("resetWifiSettings flag is saved on EEPROM");
+    memory.resetWifiSettings = true;
+    EEPROM_writeAnything(0, memory);
+    server.send(200, "text/html", "<div id='m'>On next restart WiFi credentials will be deleted and camera will start in WiFi Manager mode.</div>"+ javascriptFadeMessage);
 }
 
 void serverListFiles() {
@@ -802,8 +795,6 @@ void shutterReleased(Button2& btn) {
 void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
     Serial.println("long click: Enable timelapse");
-    // Comment this line if you don't want to reset WiFi stored credentials on next restart after LongClick
-    EEPROM_writeAnything(10, 1);
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
 }

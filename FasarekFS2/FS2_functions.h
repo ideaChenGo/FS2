@@ -19,4 +19,19 @@ template <class T> int EEPROM_readAnything(int ee, T& value)
     return i;
 }
 
+String getContentType(String filename) {
+//  if (server.hasArg("download")) {
+//    return "application/octet-stream";
+//  }
+  if (filename.endsWith(".json")) {
+    return "application/json";
+  } else if (filename.endsWith(".html")) {
+    return "text/html";
+  } else if (filename.endsWith(".css")) {
+    return "text/css";
+  } else if (filename.endsWith(".js")) {
+    return "application/javascript";
+  } 
+  return "text/plain";
+}
 
