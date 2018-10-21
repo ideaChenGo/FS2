@@ -56,7 +56,6 @@ char* localDomain = "cam"; // mDNS: cam.local
 // Makes a div id="m" containing response message to dissapear after 3 seconds
 String javascriptFadeMessage = "<script>setTimeout(function(){document.getElementById('m').innerHTML='';},6000);</script>";
 
-
 long full_length;
 // Note if saving to SPIFFS bufferSize needs to be 256, otherwise won't save correctly
 static const size_t bufferSize = 256;
@@ -70,7 +69,7 @@ String end_request = "\n--"+boundary+"--\n";
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
 bool is_header = false;
-bool resetWifiSettings = false;
+char resetWifiSettings = 0;
 
 ESP8266WebServer server(80);
 
@@ -112,8 +111,9 @@ void setup() {
      Serial.println(">>>>>>>>> D3 is LOW");
      digitalWrite(ledStatus, ledStatusBright);
      onlineMode = false;
+     // Comment this line if you don't want to reset WiFi stored credentials when starting with Shutter button pressed
+     EEPROM_writeAnything(10, 1);
      delay(500);
-     break;
     }
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
   pinMode(CS, OUTPUT);
@@ -122,9 +122,9 @@ void setup() {
   
   // Read photoCount from EEPROM
   EEPROM_readAnything(0, memory);
-  
+  EEPROM_readAnything(10,resetWifiSettings);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  
+  Serial.println("resetWifiSettings from EEPROM: "+String(resetWifiSettings));
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -234,12 +234,12 @@ void setup() {
   int timelapseInt = atoi(timelapse);
   timelapseMillis = (timelapseInt) * 1000;
   Serial.println("");
-  Serial.println("source:"+String(timelapse));
-  Serial.println("timelapseMillis: "+String(timelapseMillis));
-// Button events
- buttonShutter.setReleasedHandler(shutterReleased); // Takes picture
- buttonShutter.setLongClickHandler(shutterLongClick); // Starts timelapse
-  
+  //Serial.println("source:"+String(timelapse));
+  //Serial.println("timelapseMillis: "+String(timelapseMillis));
+
+  // Button events
+  buttonShutter.setReleasedHandler(shutterReleased); // Takes picture
+  buttonShutter.setLongClickHandler(shutterLongClick); // Starts timelapse
   uint8_t vid, pid;
   uint8_t temp;
 #if defined(__SAM3X8E__)
@@ -285,7 +285,7 @@ void setup() {
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
     Serial.println(F("Can't find OV2640 module!"));
   } else {
-    Serial.println(F("OV2640 detected."));
+    Serial.println(F("ArduCAM model OV2640 detected."));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     // TODO: Read this from config.json and match id for OV2640
@@ -320,7 +320,7 @@ void setup() {
    if((vid != 0x56) || (pid != 0x42)) {
      Serial.println("Can't find OV5642 module!");
    } else {
-     Serial.println("OV5642 detected.");
+     Serial.println("ArduCAM model OV5642 detected.");
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
@@ -616,23 +616,10 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 void saveConfigCallback() {
-  
+  EEPROM_writeAnything(10, 0);
   shouldSaveConfig = true;
   Serial.println("saveConfigCallback fired: WM Saving settings");
  
-}
-
-void shutterReleased(Button2& btn) {
-    digitalWrite(ledStatusTimelapse, LOW);
-    Serial.println("Released");
-    captureTimeLapse = false;
-    serverCapture();
-}
-void shutterLongClick(Button2& btn) {
-    digitalWrite(ledStatusTimelapse, HIGH);
-    Serial.println("long click: Enable timelapse");
-    captureTimeLapse = true;
-    lastTimeLapse = millis() + timelapseMillis;
 }
 
 void shutterPing() {
@@ -813,11 +800,26 @@ bool isServerListable(char* filename) {
   return result;
 }
 
+// Button events
+void shutterReleased(Button2& btn) {
+    digitalWrite(ledStatusTimelapse, LOW);
+    Serial.println("Released");
+    captureTimeLapse = false;
+    serverCapture();
+}
+void shutterLongClick(Button2& btn) {
+    digitalWrite(ledStatusTimelapse, HIGH);
+    Serial.println("long click: Enable timelapse");
+    captureTimeLapse = true;
+    lastTimeLapse = millis() + timelapseMillis;
+}
+
 void loop() {
    if (onlineMode) { 
     server.handleClient(); 
    }
   buttonShutter.loop();
+  
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
     serverCapture();
