@@ -77,19 +77,15 @@ ESP8266WebServer server(80);
 // Automatic switch between 2MP and 5MP models
 ArduCAM myCAM(cameraModelId, CS);
 
-// jpeg_size HashMap
-const byte HASH_SIZE = 5; 
-HashType<char*,int> hashRawArray[HASH_SIZE]; 
-// Handles the storage [search,retrieve,insert]
-HashMap<char*,int> jpegSizeMap = HashMap<char*,int>( hashRawArray, HASH_SIZE ); 
+// jpeg_size_id Setting to set the camara Width/Height resolution
+uint8_t jpeg_size_id;
 
 // Definition for WiFi parameter label
-String jpegSizeLabel;
 char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/camera-uploads/upload.php?f=2018";
 char slave_cam_ip[16] = "";
-char jpeg_size[10]    = "1600x1200";
+char jpeg_size[10]  = "1600x1200";
 
 // SPIFFS and memory to save photos
 File fsFile;
@@ -100,29 +96,25 @@ struct config_t
     int photoCount;
 } memory;
 
+
+
 void setup() {
   if (cameraModelId == 5) {
     cameraModel = "OV2640";
-        //Setup hashmap for this camera
-    jpegSizeMap[0]("640x480", 4);
-    jpegSizeMap[1]("800x600", 5);
-    jpegSizeMap[2]("1024x768", 6);
-    jpegSizeMap[3]("1280x1024", 7);
-    jpegSizeMap[4]("1600x1200", 8);
-    jpegSizeLabel = "640x480|800x600|1024x768|1280x1024|1600x1200";
   }
   if (cameraModelId == 3) {
     cameraModel = "OV5642";
-    jpegSizeMap[0]("1024x768", 2);
-    jpegSizeMap[1]("1280x960", 3);
-    jpegSizeMap[2]("1600x1200", 4);
-    jpegSizeMap[3]("2048x1536", 5);
-    jpegSizeMap[4]("2592x1944", 6);
-    jpegSizeLabel = "1024x768|1280x1024|1600x1200|2048x1536|2592x1944";
   }
   EEPROM.begin(12);
   Serial.begin(115200);
-  
+   while (digitalRead(D3) == LOW)
+   {
+     Serial.println(">>>>>>>>> D3 is LOW");
+     digitalWrite(ledStatus, ledStatusBright);
+     onlineMode = false;
+     delay(500);
+     break;
+    }
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Chip select)
   pinMode(CS, OUTPUT);
   pinMode(ledStatus, OUTPUT);
@@ -133,24 +125,14 @@ void setup() {
   
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
   
-  //Serial.println(jpegSizeMap.getValueOf("2592x1944") ); // Works
-  Serial.println("OV2640_640x480 "+String(OV2640_640x480));
-  Serial.println("OV2640_800x600 "+String(OV2640_800x600));
-  Serial.println("OV2640_1024x768 "+String(OV2640_1024x768));
-  Serial.println("OV2640_1280x1024 "+String(OV2640_1280x1024));
-  Serial.println("OV2640_1600x1200 "+String(OV2640_1600x1200));
-  //read configuration from FS json
-  Serial.println("mounting FS...");
-
+  // Read configuration from FS json
   if (SPIFFS.begin()) {
-Serial.println("mounted file system");
+    Serial.println("SPIFFS file system mounted");
 
    if (SPIFFS.exists("/config.json")) {
-      //file exists, reading and loading
-      Serial.println("reading config file");
+      Serial.println("Reading config file");
       File configFile = SPIFFS.open("/config.json", "r");
       if (configFile) {
-        Serial.println("opened config file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -166,6 +148,7 @@ Serial.println("mounted file system");
           strcpy(upload_host, json["upload_host"]);
           strcpy(upload_path, json["upload_path"]);
           strcpy(slave_cam_ip, json["slave_cam_ip"]);
+          strcpy(jpeg_size, json["jpeg_size"]);
 
         } else {
           Serial.println("Failed to load json config");
@@ -186,46 +169,42 @@ Serial.println("mounted file system");
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
-  
- while (digitalRead(D3) == LOW)
- {
-  Serial.println(">>>>>>>>>D3 is LOW");
-     digitalWrite(ledStatus, ledStatusBright);
-     onlineMode = false;
-     delay(100);
-     break;
- }
+  // Variable depending on the camera model
+  WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 800x600 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
  
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
   WiFiManager wm;
   // TODO: Add a way to force this 
-  //wm.resetSettings();
+  if (resetWifiSettings) {
+    wm.resetSettings();
+  }
   wm.setMenu(menu);
   // Add the defined parameters to wm
   wm.addParameter(&param_timelapse);
   wm.addParameter(&param_slave_cam_ip);
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
+  wm.addParameter(&param_jpeg_size);
   wm.setMinimumSignalQuality(40);
   // Callbacks configuration
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-   wm.autoConnect(configModeAP);
+  wm.autoConnect(configModeAP);
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
 
-  //read updated parameters
-  //timelapse = 60; // TODO: Pending convert to INT param_timelapse.getValue()
+  // Read updated parameters
   strcpy(timelapse, param_timelapse.getValue());
   strcpy(slave_cam_ip, param_slave_cam_ip.getValue());
   strcpy(upload_host, param_upload_host.getValue());
   strcpy(upload_path, param_upload_path.getValue());
-  
+  strcpy(jpeg_size, param_jpeg_size.getValue());
+
   if (shouldSaveConfig) {
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
@@ -235,10 +214,12 @@ Serial.println("mounted file system");
     json["slave_cam_ip"] = slave_cam_ip;
     json["upload_host"] = upload_host;
     json["upload_path"] = upload_path;
-
+    json["jpeg_size"] = jpeg_size;
     Serial.println("timelapse:"+String(timelapse));Serial.println("slave_cam_ip:"+String(slave_cam_ip));
     Serial.println("upload_host:"+String(upload_host));
     Serial.println("upload_path:"+String(upload_path));
+    Serial.println("jpeg_size:"+String(jpeg_size));
+    
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
       Serial.println("failed to open config file for writing");
@@ -267,8 +248,6 @@ Serial.println("mounted file system");
   Wire.begin();
 #endif
 
-  Serial.println("ArduCAM Start!");
-  
   // initialize SPI:
   SPI.begin();
   SPI.setFrequency(4000000); //4MHz
@@ -281,8 +260,24 @@ Serial.println("mounted file system");
     while (1);
   }
 
-if (cameraModel == "OV2640") {
-  //Check if the camera module type is OV2640
+  if (cameraModel == "OV2640") {
+    if (String(jpeg_size) == "640x480") {
+      jpeg_size_id = 4;
+      }
+    if (String(jpeg_size) == "800x600") {
+      jpeg_size_id = 5;
+      }
+    if (String(jpeg_size) == "1024x768") {
+      jpeg_size_id = 6;
+      }
+    if (String(jpeg_size) == "1280x1024") {
+      jpeg_size_id = 7;
+      }
+    if (String(jpeg_size) == "1600x1200") {
+      jpeg_size_id = 8;
+      }
+
+  // Check if the camera module type is OV2640
   myCAM.wrSensorReg8_8(0xff, 0x01);
   myCAM.rdSensorReg8_8(10, &vid);
   myCAM.rdSensorReg8_8(11, &pid);
@@ -294,11 +289,27 @@ if (cameraModel == "OV2640") {
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     // TODO: Read this from config.json and match id for OV2640
-    myCAM.OV2640_set_JPEG_size(1); 
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
   }
 }
 
   if (cameraModel == "OV5642") {
+    if (String(jpeg_size) == "1024x768") {
+      jpeg_size_id = 2;
+    }
+    if (String(jpeg_size) == "1280x1024") {
+      jpeg_size_id = 3;
+    }
+    if (String(jpeg_size) == "1600x1200") {
+      jpeg_size_id = 4;
+    } 
+    if (String(jpeg_size) == "2048x1536") {
+      jpeg_size_id = 5;
+    } 
+    if (String(jpeg_size) == "2592x1944") {
+      jpeg_size_id = 6;
+    }
+    
     temp=SPI.transfer(0x00);
     myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
 //Check if the camera module type is OV5642
@@ -314,12 +325,11 @@ if (cameraModel == "OV2640") {
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
      myCAM.write_reg(3, 2);   //VSYNC is active HIGH
-     // TODO: jpegsize is hardcoded
-     myCAM.OV5642_set_JPEG_size(OV5642_1600x1200);
+     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
    }
   }
 
-  Serial.println(">>>>>>>>>>> JPEG_Size:"+String(OV5642_2592x1944));
+  Serial.println("ArduCAM "+cameraModel+" > JPEG_Size: "+jpeg_size+ " ID: " + String(jpeg_size_id));
 
   myCAM.clear_fifo_flag();
 
