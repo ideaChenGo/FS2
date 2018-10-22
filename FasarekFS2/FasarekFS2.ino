@@ -54,7 +54,7 @@ const char* configModeAP = "CAM-autoconnect";
 String message;
 char* localDomain = "cam"; // mDNS: cam.local
 
-// Makes a div id="m" containing response message to dissapear after 3 seconds
+// Makes a div id="m" containing response message to dissapear after 6 seconds
 String javascriptFadeMessage = "<script>setTimeout(function(){document.getElementById('m').innerHTML='';},6000);</script>";
 
 long full_length;
@@ -80,10 +80,10 @@ ArduCAM myCAM(cameraModelId, CS);
 // jpeg_size_id Setting to set the camara Width/Height resolution
 uint8_t jpeg_size_id;
 
-// Definition for WiFi parameter label
+// Definition for WiFi defaults
 char timelapse[4] = "30";
 char upload_host[120] = "api.slosarek.eu";
-char upload_path[240] = "/camera-uploads/upload.php?f=2018";
+char upload_path[240] = "/your/upload.php";
 char slave_cam_ip[16] = "";
 char jpeg_size[10]  = "1600x1200";
 
@@ -114,10 +114,10 @@ void setup() {
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
   
-  // Read photoCount from EEPROM
+  // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
+  // Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -154,7 +154,7 @@ void setup() {
   }
 //end read
   
-  std::vector<const char *> menu = {"wifi","wifinoscan","info","sep","restart"};
+  std::vector<const char *> menu = {"wifi","wifinoscan","info","sep","params"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -169,7 +169,7 @@ void setup() {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
   WiFiManager wm;
-  // TODO: Add a way to force this 
+  // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
   }
@@ -180,7 +180,7 @@ void setup() {
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
   wm.addParameter(&param_jpeg_size);
-  wm.setMinimumSignalQuality(40);
+  wm.setMinimumSignalQuality(20);
   // Callbacks configuration
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
@@ -208,14 +208,15 @@ void setup() {
     json["upload_host"] = upload_host;
     json["upload_path"] = upload_path;
     json["jpeg_size"] = jpeg_size;
-    Serial.println("timelapse:"+String(timelapse));Serial.println("slave_cam_ip:"+String(slave_cam_ip));
+    Serial.println("timelapse:"+String(timelapse));
+    Serial.println("slave_cam_ip:"+String(slave_cam_ip));
     Serial.println("upload_host:"+String(upload_host));
     Serial.println("upload_path:"+String(upload_path));
     Serial.println("jpeg_size:"+String(jpeg_size));
     
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
-      Serial.println("failed to open config file for writing");
+      Serial.println("Failed to open config file for writing");
     }
 
     json.printTo(Serial);
@@ -252,7 +253,7 @@ void setup() {
     Serial.println(F("SPI1 interface Error!"));
     while (1);
   }
-
+// TODO Refactor this ugly casting to string just because c adds the 0 operator at end of chars
   if (cameraModel == "OV2640") {
     if (String(jpeg_size) == "640x480") {
       jpeg_size_id = 4;
@@ -281,7 +282,6 @@ void setup() {
     Serial.println(F("ArduCAM model OV2640 detected."));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
-    // TODO: Read this from config.json and match id for OV2640
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
   }
 }
@@ -305,7 +305,7 @@ void setup() {
     
     temp=SPI.transfer(0x00);
     myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
-//Check if the camera module type is OV5642
+    //Check if the camera module type is OV5642
     myCAM.wrSensorReg16_8(0xff, 0x01);
     myCAM.rdSensorReg16_8(12298, &vid);
     myCAM.rdSensorReg16_8(12299, &pid);
@@ -327,10 +327,8 @@ void setup() {
   myCAM.clear_fifo_flag();
 
    // Set up mDNS responder:
-  // - first argument is the domain name, in this example
-  //   the fully-qualified domain name is "esp8266.local"
+  // - first argument is the domain name, in FS2 the fully-qualified domain name is "cam.local"
   // - second argument is the IP address to advertise
-  //   we send our IP address on the WiFi network
   if (onlineMode) {
     if (!MDNS.begin(localDomain)) {
       Serial.println("Error setting up MDNS responder!");
@@ -342,7 +340,7 @@ void setup() {
     MDNS.addService("http", "tcp", 80);
     
     Serial.println("mDNS responder started");
-  
+    // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
     server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
@@ -673,7 +671,6 @@ void serverListFiles() {
       webTemplate += file.readStringUntil('\n');  
     }
     file.close();
-    //Serial.println(">>>>> webTemplate read: "+webTemplate);
   } else {
     Serial.println("Could not read "+fileName+" from SPIFFS");
     server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
@@ -774,7 +771,6 @@ bool isServerDeleteable(String filename) {
 }
   
 bool isServerListable(char* filename) {
-  //Serial.println("isServerListable: "+String(filename));
   int8_t len = strlen(filename);
   bool result;
   if (  strstr(strlwr(filename + (len - 4)), ".jpg")
