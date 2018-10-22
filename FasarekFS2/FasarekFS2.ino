@@ -22,16 +22,17 @@
 #include "memorysaver.h"
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
-#include "FS2_functions.h"; // Helper functions. Includes: HashMap
+#include "FS2_functions.h"; // Helper functions
 
-//Note on memorysaver selected: Switch model to indicated ID. Ex.OV2640 = 5 
-String cameraModel;  // OV2640:5 |  OV5642:3   5MP
+// Switch model to indicated ID. Ex.OV2640 = 5 
+String cameraModel;  
+// OV2640:5 |  OV5642:3   5MP
 int cameraModelId = 5;
 
 // set GPIO16 as the slave select :
 const int CS = 16;
 
-// When timelapse is on will capture picture every N minutes
+// When timelapse is on will capture picture every N seconds
 boolean captureTimeLapse;
 boolean isStreaming = false;
 static unsigned long lastTimeLapse;
