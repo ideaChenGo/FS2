@@ -77,11 +77,11 @@ ESP8266WebServer server(80);
 // Automatic switch between 2MP and 5MP models
 ArduCAM myCAM(cameraModelId, CS);
 
-// jpeg_size_id Setting to set the camara Width/Height resolution
-uint8_t jpeg_size_id;
+// jpeg_size_id Setting to set the camara Width/Height resolution. Smallest is default if no string match is done by config
+uint8_t jpeg_size_id = 1;
 
 // Definition for WiFi defaults
-char timelapse[4] = "30";
+char timelapse[4] = "60";
 char upload_host[120] = "api.slosarek.eu";
 char upload_path[240] = "/your/upload.php";
 char slave_cam_ip[16] = "";
