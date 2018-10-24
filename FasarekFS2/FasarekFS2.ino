@@ -24,14 +24,15 @@
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
 
-// Switch model to indicated ID. Ex.OV2640 = 5 
-String cameraModel;  
-// OV2640:5 |  OV5642:3   5MP
-int cameraModelId = 5;
+// CONFIGURATION
+// Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
+const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
+char* localDomain        = "cam";              // mDNS: cam.local
+byte  CS = 16;                                 // set GPIO16 as the slave select
 
-// set GPIO16 as the slave select :
-const int CS = 16;
-
+// INTERNAL GLOBALS
 // When timelapse is on will capture picture every N seconds
 boolean captureTimeLapse;
 boolean isStreaming = false;
@@ -49,15 +50,11 @@ const int ledStatusTimelapse = D8;
 int ledStatusBright = 200;
 
 WiFiClient client;
-// Default config mode Access point
-const char* configModeAP = "CAM-autoconnect";
-String message;
-char* localDomain = "cam"; // mDNS: cam.local
 
 // Makes a div id="m" containing response message to dissapear after 6 seconds
 String javascriptFadeMessage = "<script>setTimeout(function(){document.getElementById('m').innerHTML='';},6000);</script>";
+String message;
 
-long full_length;
 // Note if saving to SPIFFS bufferSize needs to be 256, otherwise won't save correctly
 static const size_t bufferSize = 256;
 static uint8_t buffer[bufferSize] = {0xFF};
@@ -100,6 +97,7 @@ struct config_t
 
 
 void setup() {
+  String cameraModel; 
   if (cameraModelId == 5) {
     cameraModel = "OV2640";
   }
@@ -154,7 +152,7 @@ void setup() {
   }
 //end read
   
-  std::vector<const char *> menu = {"wifi","wifinoscan","info","sep","params"};
+  std::vector<const char *> menu = {"wifi", "sep", "info"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -163,7 +161,7 @@ void setup() {
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
   // Variable depending on the camera model
-  WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 800x600 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
+  WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
  
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
@@ -287,6 +285,9 @@ void setup() {
 }
 
   if (cameraModel == "OV5642") {
+    if (String(jpeg_size) == "640x480") {
+      jpeg_size_id = 1;
+    }
     if (String(jpeg_size) == "1024x768") {
       jpeg_size_id = 2;
     }
@@ -365,10 +366,10 @@ void start_capture() {
 
 String camCapture(ArduCAM myCAM) {
   Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
-
+  long full_length;
   uint32_t len  = myCAM.read_fifo_length();
   
-  if (len == 0 ) //0 kb
+  if (len == 0) //0 kb
   {
     Serial.println(F("fifo_length = 0"));
     return "Could not read fifo (length is 0)";
@@ -376,7 +377,7 @@ String camCapture(ArduCAM myCAM) {
 
   myCAM.CS_LOW();
   myCAM.set_fifo_burst();
-  if (cameraModel == "OV2640") {
+  if (cameraModelId == 5) {
     SPI.transfer(0xFF);
   }
   if (client.connect(upload_host, 80) || onlineMode) { 
@@ -404,9 +405,9 @@ String camCapture(ArduCAM myCAM) {
     client.print("Content-Length: "); client.println(full_length);
     client.println();
     client.print(start_request);
-    
-  fsFile = SPIFFS.open("/"+String(memory.photoCount)+".jpg", "w");
-
+  if (saveInSpiffs) {
+    fsFile = SPIFFS.open("/"+String(memory.photoCount)+".jpg", "w");
+  }
   // Read image data from Arducam mini and send away to internet
   static uint8_t buffer[bufferSize] = {0xFF};
   while (len) {
@@ -417,13 +418,13 @@ String camCapture(ArduCAM myCAM) {
       if (client.connected()) {
          client.write(&buffer[0], will_copy);
       }
-      if (fsFile) {
+      if (fsFile && saveInSpiffs) {
         fsFile.write(&buffer[0], will_copy);
       }
       len -= will_copy;
   }
 
-  if (fsFile) {
+  if (fsFile && saveInSpiffs) {
     fsFile.close();
   }
 
@@ -619,8 +620,10 @@ void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
   WiFiClient client;
   String host = slave_cam_ip;
+  if (host == "") return;
+  
   if (!client.connect(host, 80)) {
-    Serial.println("connection to "+String(host)+" failed");
+    Serial.println("connection to shutterPing() host:"+String(host)+" failed");
     return;
   }
     // This will send the request to the server
@@ -656,7 +659,8 @@ void serverResetWifiSettings() {
     Serial.println("resetWifiSettings flag is saved on EEPROM");
     memory.resetWifiSettings = true;
     EEPROM_writeAnything(0, memory);
-    server.send(200, "text/html", "<div id='m'>On next restart WiFi credentials will be deleted and camera will start in WiFi Manager mode.</div>"+ javascriptFadeMessage);
+    server.send(200, "text/html", "<div id='m'><h5>Restarting...</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
+    ESP.restart();
 }
 
 void serverListFiles() {
