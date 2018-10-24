@@ -23,6 +23,7 @@ It's done in two easy steps:
 Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress. There you will find also the hardware components that are just a few and you will need a 2.54 small PCB board to fit the components (35*56 mm).
 
 ![electronics Schematics](https://fasarek.de/assets/fs2/Schematic_FS2-Camera_FS2_201810.png)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2?ref=badge_shield)
 
 ### Photos previews in Php-gallery
 Please check this small gallery for Photo samples taken with the 2MP Arducam model and this camera:
@@ -111,3 +112,7 @@ This are only some of the next goals. But is your camera, your software, so make
 
 [Fasani](https://fasani.de) Lead programmer of this project
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2?ref=badge_large)
