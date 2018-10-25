@@ -26,11 +26,13 @@
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
-bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
-char* localDomain        = "cam";              // mDNS: cam.local
+char* localDomain        = "cam1";             // mDNS: cam.local
 byte  CS = 16;                                 // set GPIO16 as the slave select
+
+// NOTE: OV2640 Owners please also make sure to modifycamera module in the ../libraries/ArduCAM/memorysaver.h
 
 // INTERNAL GLOBALS
 // When timelapse is on will capture picture every N seconds
@@ -45,9 +47,6 @@ bool shouldSaveConfig = false;
 Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
-
-// Led default PWMs
-int ledStatusBright = 200;
 
 WiFiClient client;
 
@@ -90,7 +89,7 @@ String webTemplate = "";
 bool onlineMode = true;
 struct config_t
 {
-    int photoCount;
+    byte photoCount = 1;
     bool resetWifiSettings;
 } memory;
 
@@ -100,6 +99,9 @@ void setup() {
   String cameraModel; 
   if (cameraModelId == 5) {
     cameraModel = "OV2640";
+    #if !(defined (OV2640_MINI_2MP)||(defined (ARDUCAM_SHIELD_V2) && defined (OV2640_CAM)))
+      #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
+    #endif
   }
   if (cameraModelId == 3) {
     cameraModel = "OV5642";
@@ -365,9 +367,19 @@ void start_capture() {
 
 
 String camCapture(ArduCAM myCAM) {
-  Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
-  long full_length;
+    // Check if available bytes in SPIFFS
+  FSInfo fs_info;
+  SPIFFS.info(fs_info);
+  uint32_t bytesAvailableSpiffs = fs_info.totalBytes-fs_info.usedBytes;
   uint32_t len  = myCAM.read_fifo_length();
+
+  Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
+  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
+  if (len*2 > bytesAvailableSpiffs) {
+    memory.photoCount = 1;
+    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
+  }
+  long full_length;
   
   if (len == 0) //0 kb
   {
@@ -658,8 +670,10 @@ void serverStopTimelapse() {
 void serverResetWifiSettings() {
     Serial.println("resetWifiSettings flag is saved on EEPROM");
     memory.resetWifiSettings = true;
+    memory.photoCount = 1;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting...</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
+    delay(500);
     ESP.restart();
 }
 
@@ -681,18 +695,19 @@ void serverListFiles() {
     return;
   }
   
-    String body = "<table class='table'>";
-    body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
+  String body = "<table class='table'>";
+  body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
+  
   Dir dir = SPIFFS.openDir("/");
   String fileUnit;
+  unsigned int fileSize;
+  char fileChar[32];
   
   while (dir.next()) {
     String fileName = dir.fileName();
-    char fileChar[32];
     fileName.toCharArray(fileChar, 32);
     if (!isServerListable(fileChar)) continue;
     
-    float fileSize;
     if (dir.fileSize()<1024) {
         fileUnit = " bytes";
         fileSize = dir.fileSize();
@@ -706,7 +721,7 @@ void serverListFiles() {
     body += "<td>"+ String(fileSize)+fileUnit +"</td>";
     body += "<td>";
     if (isServerDeleteable(fileName)) {
-      body += "<a class='btn btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
+      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
     }
     body += "</td>";
     body += "</tr>";
