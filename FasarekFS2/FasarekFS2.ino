@@ -26,7 +26,7 @@
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam1";             // mDNS: cam.local
@@ -98,10 +98,8 @@ struct config_t
 void setup() {
   String cameraModel; 
   if (cameraModelId == 5) {
+    // Please select the hardware platform for your camera module in the ../libraries/ArduCAM/memorysaver.h file
     cameraModel = "OV2640";
-    #if !(defined (OV2640_MINI_2MP)||(defined (ARDUCAM_SHIELD_V2) && defined (OV2640_CAM)))
-      #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
-    #endif
   }
   if (cameraModelId == 3) {
     cameraModel = "OV5642";
