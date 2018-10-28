@@ -27,12 +27,13 @@
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
-bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
+bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
-char* localDomain        = "cam1";             // mDNS: cam.local
+char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 16;                                 // set GPIO16 as the slave select
 
-// NOTE: OV2640 Owners please also make sure to modifycamera module in the ../libraries/ArduCAM/memorysaver.h
+// NOTE:     ArduCAM owners please also make sure to modify camera module in the ../libraries/ArduCAM/memorysaver.h
+// ATTENION: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
 
 // INTERNAL GLOBALS
 // When timelapse is on will capture picture every N seconds
