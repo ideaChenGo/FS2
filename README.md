@@ -44,7 +44,9 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
 
    The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image responding with the image full URL. For an example about this please check the script upload.php in my [repository php-gallery](https://github.com/martinberlin/php-gallery)
 
-### config.json
+### SPIFFs and config.json
+
+Please make the most bigger SPI Flash File System you can for your board, for example in Wemos D1 is 3 Mb, and upload the /data folder of the sketch. In the SPIFFs we save the JPG files at the same time we send it to the WiFi Client in a "best try" approach and we also save the configuration parameters handled by WiFi Manager in a file called **config.json** 
 
     {
      "timelapse":    30,
@@ -53,13 +55,28 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
      "slave_cam_ip": ""
     }
 
-**timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 2 seconds)
+This is a managed File, that you can edit in the WiFi configuration and will be overwritten when the connection is successful. It stores the following properties:
 
-**upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
+**timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 3 seconds or via cam.local user interface)
+
+**upload_host** the host to your upload script
+
+**upload_path** the path to your upload script (both together form the URL to push the image: http://testweb.com/upload.php?f=2018
 
 **slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
+
+### Pre-compiled bynaries
+
+We are going to maintain only pre-compiled bynaries for a handful of Boards that we currently use. In the develop branch you can find:
+
+   - Wemos D1 R2, OV5642 5MP Arducam 
+   - NodeMCU ESP-12, OV5642 5MP Arducam 
+   
+Please refer to the Compiled folder in the develop branch of this repository:
+https://github.com/martinberlin/FS2/tree/develop/Compiled
+
 
 ### Known limitations and bugs
 My C++ skills to make a POST are not fail safe, WiFi can be not stable all times, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
