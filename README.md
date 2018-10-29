@@ -61,7 +61,7 @@ This is a managed File, that you can edit in the WiFi configuration and will be 
 
 **upload_host** the host to your upload script
 
-**upload_path** the path to your upload script (both together form the URL to push the image: http://testweb.com/upload.php?f=2018
+**upload_path** the path to your upload script. Both together form the URL to push the image: http:// testweb.com/upload.php?f=2018
 
 **slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
