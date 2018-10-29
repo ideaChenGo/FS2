@@ -33,7 +33,7 @@ char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 16;                                 // set GPIO16 as the slave select
 
 // NOTE:     ArduCAM owners please also make sure to modify camera module in the ../libraries/ArduCAM/memorysaver.h
-// ATTENION: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
+// ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
 
 // INTERNAL GLOBALS
 // When timelapse is on will capture picture every N seconds
