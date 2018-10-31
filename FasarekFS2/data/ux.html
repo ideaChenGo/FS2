@@ -12,8 +12,9 @@
 <main role='main'>
     <div class='container-fluid'>
         <div class='row'>
-            <!-- TODO: Handle replacement tags like @localDomain -->
-            <div class='col-md-12'><h4>cam.local</h4>
+            <!-- TODO: Handle replacement tags like {{localDomain}} -->
+            <div class='col-md-12'>
+                <h4>cam.local &nbsp;<small><a href="/fs/list">File Manager</a></small></h4>
 
                 <form id='f2' action='/stream' target='frame' method='GET'>
                     <input type='submit' value='Stream' class='btn btn-light'>
@@ -29,6 +30,7 @@
                 </form>
 
                 <iframe name='frame' width='100%' height='400' frameborder="0"></iframe>
+                <button onclick="frame.location='/wifi/reset'" class="btn btn-sm btn-danger">Reset WiFi credentials on next start</button>
             </div>
         </div>
     </div>
