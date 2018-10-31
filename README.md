@@ -16,12 +16,14 @@ It's done in two easy steps:
     1 . Turn on the camera and connect to CAM-autoconnect through any device, browse 162.168.4.1 
         and there will greet you the “WiFi manager”
     2 . Select a WiFi and write the credentials to make a connection
-    You are all set, you just need to enable the hotspot and the camera will reset and connect to it automatically.
+        You are all set, you just need to enable the hotspot and the camera will reset and connect
+        to it automatically.
 
 ### Schematics
 Please check the latest [electronics Schematics](https://fasarek.de/fs2-digital-camera.php) in our website Fasarek.de since it may be updated since it's a work in progress. There you will find also the hardware components that are just a few and you will need a 2.54 small PCB board to fit the components (35*56 mm).
 
 ![electronics Schematics](https://fasarek.de/assets/fs2/Schematic_FS2-Camera_FS2_201810.png)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2?ref=badge_shield)
 
 ### Photos previews in Php-gallery
 Please check this small gallery for Photo samples taken with the 2MP Arducam model and this camera:
@@ -37,12 +39,16 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    [Understanding how SPIFFS work and the library to upload a data folder](http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html) This is because the Camera configuration is saved in a config.json file using SPI Flash File System.
    
    Arduino JSON Library. I literally copied WiFi Manager example to build the config.json
+   IMPORTANT: Any version > 5.13.3 gives me an error on compiling. I still didn't found exactly why I would be glad if you make me aware, so please downgrade your Arduino Json lib when compiling this.
 
-   *UPDATE the upload API endpoint* in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint that will recive the Post request from the camera.
+   *UPDATE the upload API endpoint* in the config.json . Please rename the data/config.json.dist to config.json and configure it to fit your system upload endpoint that will receive the Post request from the camera.
 
    [Button2](https://github.com/LennartHennigs/Button2) Arduino Library to simplify working with buttons. It allows you to use callback functions to track single, double, triple and long clicks.
 
    The camera is a pure WiFi camera so it needs an upload endpoint, made in any language, that takes the POST request and uploads the image responding with the image full URL. For an example about this please check the script upload.php in my [repository php-gallery](https://github.com/martinberlin/php-gallery)
+   
+   LAZY to bring together all this?
+   Just ask and I will post somewhere a download link with the compiled binary file!
 
 ### SPIFFs and config.json
 
@@ -54,6 +60,8 @@ Please make the most bigger SPI Flash File System you can for your board, for ex
      "upload_path" : "/upload.php?f=2018",
      "slave_cam_ip": ""
     }
+    
+    on develop branch there is a new property called jpeg_size 
 
 This is a managed File, that you can edit in the WiFi configuration and will be overwritten when the connection is successful. It stores the following properties:
 
@@ -63,7 +71,7 @@ This is a managed File, that you can edit in the WiFi configuration and will be 
 
 **upload_path** the path to your upload script. Both together form the URL to push the image: http:// testweb.com/upload.php?f=2018
 
-**slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to pimg any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
+**slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to ping any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
 
@@ -77,6 +85,15 @@ We are going to maintain only pre-compiled bynaries for a handful of Boards that
 Please refer to the Compiled folder in the develop branch of this repository:
 https://github.com/martinberlin/FS2/tree/develop/Compiled
 
+### Latest experimental features are on develop branch
+Please pull develop to help us testing new features.
+
+New features currently being tested are:
+
+    - Force start in Wifi Manager mode with the route /wifi/reset
+    - Configure Arducam model changing one line
+    - jpegSize resolutiom with the 5 bigger settings added as a new parameter and stored in SPIFFS config.json
+    - SPIFFS File manager
 
 ### Known limitations and bugs
 My C++ skills to make a POST are not fail safe, WiFi can be not stable all times, and also the ESP8266 "System on a chip" boards are not meant to upload an Elephant in the internet. So 1 of 20 pictures may fail and will fail.
@@ -111,3 +128,6 @@ This are only some of the next goals. But is your camera, your software, so make
 
 [Fasani](https://fasani.de) Lead programmer of this project
 
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmartinberlin%2FFS2?ref=badge_large)
