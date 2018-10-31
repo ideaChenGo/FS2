@@ -19,20 +19,20 @@
 #include <Wire.h>
 #include <ArduCAM.h>
 #include <SPI.h>
-#include "memorysaver.h"
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 16;                                 // set GPIO16 as the slave select
 
-// NOTE:     ArduCAM owners please also make sure to modify camera module in the ../libraries/ArduCAM/memorysaver.h
+#include "memorysaver.h"  // Uncomment the camera model you use
+// NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
 // ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
 
 // INTERNAL GLOBALS
@@ -152,7 +152,8 @@ void setup() {
     Serial.println("Failed to mount FS");
   }
 //end read
-  
+
+  // Todo: Add "param" ?
   std::vector<const char *> menu = {"wifi", "sep", "info"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
