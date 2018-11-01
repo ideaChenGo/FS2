@@ -92,6 +92,7 @@ struct config_t
 {
     byte photoCount = 1;
     bool resetWifiSettings;
+    bool saveParamCallback;
 } memory;
 
 
@@ -154,7 +155,7 @@ void setup() {
 //end read
 
   // Todo: Add "param" ?
-  std::vector<const char *> menu = {"wifi", "sep", "info"};
+  std::vector<const char *> menu = {"wifi", "sep", "param","sep", "info", "restart"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -182,11 +183,17 @@ void setup() {
   wm.addParameter(&param_jpeg_size);
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
+  wm.setSaveParamsCallback(saveParamCallback);
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-  wm.autoConnect(configModeAP);
+
+  if (memory.saveParamCallback) {
+    wm.startConfigPortal(configModeAP);
+  } else {
+    wm.autoConnect(configModeAP);
+  }
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
@@ -352,6 +359,7 @@ void setup() {
     server.on("/fs/download", HTTP_GET, serverDownloadFile);
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
     
     server.onNotFound(handleWebServerRoot);
     server.begin();
@@ -628,6 +636,13 @@ void saveConfigCallback() {
  
 }
 
+void saveParamCallback(){
+  memory.saveParamCallback = false;
+  EEPROM_writeAnything(0, memory);
+  shouldSaveConfig = true;
+  Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
+}
+
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
   WiFiClient client;
@@ -672,7 +687,16 @@ void serverResetWifiSettings() {
     memory.resetWifiSettings = true;
     memory.photoCount = 1;
     EEPROM_writeAnything(0, memory);
-    server.send(200, "text/html", "<div id='m'><h5>Restarting...</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
+    server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
+    delay(500);
+    ESP.restart();
+}
+
+void serverCameraParams() {
+    Serial.println("serverCameraParams flag is saved on EEPROM");
+    memory.saveParamCallback = true;
+    EEPROM_writeAnything(0, memory);
+    server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>Edit camera configuration using <b>Setup</b></div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
 }

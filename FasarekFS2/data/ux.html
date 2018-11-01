@@ -30,7 +30,18 @@
                 </form>
 
                 <iframe name='frame' width='100%' height='400' frameborder="0"></iframe>
-                <button onclick="frame.location='/wifi/reset'" class="btn btn-sm btn-danger">Reset WiFi credentials on next start</button>
+                <div class='row'>
+                    <div class='col-md-6'>
+                        <button onclick="frame.location='/wifi/reset'"
+                                class="btn btn-sm btn-danger"
+                                title="Camera will restart and create the CAM accesspoint">Reset WiFi Credentials</button>
+                        </div>
+                    <div class='col-md-6'>
+                        <button onclick="frame.location='/camera/settings'"
+                                class="btn btn-sm btn-default form-control"
+                                title="This option does not change WiFi settings">Restart and edit Camera settings</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
