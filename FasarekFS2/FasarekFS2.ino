@@ -49,6 +49,7 @@ Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
 
+WiFiManager wm;
 WiFiClient client;
 
 // Makes a div id="m" containing response message to dissapear after 6 seconds
@@ -168,8 +169,6 @@ void setup() {
  
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
-
-  WiFiManager wm;
   // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
@@ -189,11 +188,8 @@ void setup() {
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
 
-  if (memory.saveParamCallback) {
-    wm.startConfigPortal(configModeAP);
-  } else {
-    wm.autoConnect(configModeAP);
-  }
+  wm.startConfigPortal(configModeAP);
+  
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
@@ -640,6 +636,7 @@ void saveParamCallback(){
   memory.saveParamCallback = false;
   EEPROM_writeAnything(0, memory);
   shouldSaveConfig = true;
+  wm.stopConfigPortal();
   Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
 }
 
