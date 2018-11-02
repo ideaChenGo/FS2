@@ -9,19 +9,20 @@
                    
 
 // This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
-#include <FS.h> // This needs to be first since it's SPIFFS where we save the camera config.json
+#include "FS.h"
+#include "SPIFFS.h"
 #include <EEPROM.h>
 #include <WiFiManager.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
 #include <Wire.h>
 #include <ArduCAM.h>
 #include <SPI.h>
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
+#include <WebServer.h>
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
@@ -44,6 +45,9 @@ unsigned long timelapseMillis;
 // Flag for saving data in config.json
 bool shouldSaveConfig = false;
 
+byte D3 = 11;
+byte D4 = 12;
+byte D8 = 13;
 // Outputs / Inputs (Shutter button D3)
 Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
@@ -70,7 +74,7 @@ int i = 0;
 bool is_header = false;
 bool resetWifiSettings;
 
-ESP8266WebServer server(80);
+WebServer server(80);
 
 // Automatic switch between 2MP and 5MP models
 ArduCAM myCAM(cameraModelId, CS);
@@ -381,17 +385,17 @@ void start_capture() {
 
 String camCapture(ArduCAM myCAM) {
     // Check if available bytes in SPIFFS
-  FSInfo fs_info;
-  SPIFFS.info(fs_info);
-  uint32_t bytesAvailableSpiffs = fs_info.totalBytes-fs_info.usedBytes;
+//  FSInfo fs_info;
+//  SPIFFS.info(fs_info);
+//  uint32_t bytesAvailableSpiffs = fs_info.totalBytes-fs_info.usedBytes;
   uint32_t len  = myCAM.read_fifo_length();
 
   Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
-  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
-  if (len*2 > bytesAvailableSpiffs) {
-    memory.photoCount = 1;
-    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
-  }
+//  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
+//  if (len*2 > bytesAvailableSpiffs) {
+//    memory.photoCount = 1;
+//    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
+//  }
   long full_length;
   
   if (len == 0) //0 kb
@@ -758,11 +762,11 @@ void serverListFiles() {
     
   body += "</table>";
 
-  FSInfo fs_info;
-  SPIFFS.info(fs_info);
-  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
-  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
-  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
+//  FSInfo fs_info;
+//  SPIFFS.info(fs_info);
+//  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
+//  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
+//  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
 
   webTemplate.replace("{{localDomain}}", localDomain);
   webTemplate.replace("{{home}}", "Camera UI");
