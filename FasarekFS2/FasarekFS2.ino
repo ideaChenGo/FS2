@@ -25,7 +25,7 @@
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -491,7 +491,9 @@ void serverCapture() {
 
   int total_time = 0;
   total_time = millis();
-  while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
+  while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
+    delay(1);
+  }
   total_time = millis() - total_time;
   Serial.print(F("capture total_time used (in miliseconds):"));
   Serial.println(total_time, DEC);
