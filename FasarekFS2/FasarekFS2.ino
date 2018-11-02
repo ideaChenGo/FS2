@@ -160,6 +160,7 @@ void setup() {
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
+  WiFiManagerParameter custom_html("<h2>Camera configuration</h2><p>After saving camera will restart and try to login to last WiFi connection</p>"); 
   WiFiManagerParameter param_timelapse("timelapse", "Timelapse in secs", timelapse,4);
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
@@ -175,11 +176,13 @@ void setup() {
   }
   wm.setMenu(menu);
   // Add the defined parameters to wm
+  wm.addParameter(&custom_html);
   wm.addParameter(&param_timelapse);
   wm.addParameter(&param_slave_cam_ip);
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
   wm.addParameter(&param_jpeg_size);
+  
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
   wm.setSaveParamsCallback(saveParamCallback);
@@ -189,6 +192,9 @@ void setup() {
   wm.setDebugOutput(false);
   // If saveParamCallback is called then on next restart trigger config portal to update camera params
   if (memory.saveParamCallback) {
+    // Let's do this just one time: Restarting again should connect to previous WiFi
+    memory.saveParamCallback = false;
+    EEPROM_writeAnything(0, memory);
     wm.startConfigPortal(configModeAP);
   } else {
     wm.autoConnect(configModeAP);
@@ -205,8 +211,6 @@ void setup() {
   strcpy(jpeg_size, param_jpeg_size.getValue());
 
   if (shouldSaveConfig) {
-    memory.saveParamCallback = false;
-    EEPROM_writeAnything(0, memory);
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
     DynamicJsonBuffer jsonBuffer;
@@ -639,6 +643,7 @@ void saveConfigCallback() {
 
 void saveParamCallback(){
   shouldSaveConfig = true;
+  delay(100);
   wm.stopConfigPortal();
   Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
 }
