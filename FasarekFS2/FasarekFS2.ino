@@ -187,9 +187,12 @@ void setup() {
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-
-  wm.startConfigPortal(configModeAP);
-  
+  // If saveParamCallback is called then on next restart trigger config portal to update camera params
+  if (memory.saveParamCallback) {
+    wm.startConfigPortal(configModeAP);
+  } else {
+    wm.autoConnect(configModeAP);
+  }
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
@@ -202,6 +205,8 @@ void setup() {
   strcpy(jpeg_size, param_jpeg_size.getValue());
 
   if (shouldSaveConfig) {
+    memory.saveParamCallback = false;
+    EEPROM_writeAnything(0, memory);
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
     DynamicJsonBuffer jsonBuffer;
@@ -633,8 +638,6 @@ void saveConfigCallback() {
 }
 
 void saveParamCallback(){
-  memory.saveParamCallback = false;
-  EEPROM_writeAnything(0, memory);
   shouldSaveConfig = true;
   wm.stopConfigPortal();
   Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
