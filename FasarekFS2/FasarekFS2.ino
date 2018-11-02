@@ -7,7 +7,13 @@
 // | |    ____) |/ /_ 
 // |_|   |_____/|____|     WiFi instant Camera
                    
-
+// PIN Definition for the ESP-32
+// CS   16  Can be defined
+// MOSI 23
+// MISO 19
+// SCK  5
+// SDA  21
+// SCL  22
 // This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
 #include "FS.h"
 #include "SPIFFS.h"
@@ -113,6 +119,11 @@ void setup() {
   }
   EEPROM.begin(12);
   Serial.begin(115200);
+  // Find out what are this PINS on ESP32
+  //Serial.println(MOSI);
+  //Serial.println(MISO);
+  //Serial.println(SCK);
+  //Serial.println(SDA);
 
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Arducam Chip select)
   pinMode(CS, OUTPUT);
