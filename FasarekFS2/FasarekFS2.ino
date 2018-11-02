@@ -654,14 +654,13 @@ void saveParamCallback(){
 
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
-  WiFiClient client;
   String host = slave_cam_ip;
   if (host == "") return;
   
-  if (!client.connect(host, 80)) {
-    Serial.println("connection to shutterPing() host:"+String(host)+" failed");
-    return;
-  }
+//  if (!client.connect(host, 80)) {
+//    Serial.println("connection to shutterPing() host:"+String(host)+" failed");
+//    return;
+//  }
     // This will send the request to the server
   client.print(String("GET ") + "/capture HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" + 
@@ -730,35 +729,36 @@ void serverListFiles() {
   
   String body = "<table class='table'>";
   body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
+  //'Dir' was not declared in this scope
   
-  Dir dir = SPIFFS.openDir("/");
-  String fileUnit;
-  unsigned int fileSize;
-  char fileChar[32];
-  
-  while (dir.next()) {
-    String fileName = dir.fileName();
-    fileName.toCharArray(fileChar, 32);
-    if (!isServerListable(fileChar)) continue;
-    
-    if (dir.fileSize()<1024) {
-        fileUnit = " bytes";
-        fileSize = dir.fileSize();
-        } else {
-          fileUnit = " Kb";
-          fileSize = dir.fileSize()/1024;
-        }
-    fileName.remove(0,1);
-    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-    body += fileName+"</a></td>";
-    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-    body += "<td>";
-    if (isServerDeleteable(fileName)) {
-      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-    }
-    body += "</td>";
-    body += "</tr>";
-  }
+//  Dir dir = SPIFFS.openDir("/");
+//  String fileUnit;
+//  unsigned int fileSize;
+//  char fileChar[32];
+//  
+//  while (dir.next()) {
+//    String fileName = dir.fileName();
+//    fileName.toCharArray(fileChar, 32);
+//    if (!isServerListable(fileChar)) continue;
+//    
+//    if (dir.fileSize()<1024) {
+//        fileUnit = " bytes";
+//        fileSize = dir.fileSize();
+//        } else {
+//          fileUnit = " Kb";
+//          fileSize = dir.fileSize()/1024;
+//        }
+//    fileName.remove(0,1);
+//    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
+//    body += fileName+"</a></td>";
+//    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
+//    body += "<td>";
+//    if (isServerDeleteable(fileName)) {
+//      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
+//    }
+//    body += "</td>";
+//    body += "</tr>";
+//  }
     
   body += "</table>";
 
