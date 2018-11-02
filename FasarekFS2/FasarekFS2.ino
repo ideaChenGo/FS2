@@ -715,8 +715,6 @@ void serverListFiles() {
   
   if (SPIFFS.exists(fileName)) {
     File file = SPIFFS.open(fileName, "r");
-    //server.streamFile(file, getContentType(fileName));
-    
     while (file.available() != 0) {  
       webTemplate += file.readStringUntil('\n');  
     }
@@ -730,35 +728,40 @@ void serverListFiles() {
   String body = "<table class='table'>";
   body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
   //'Dir' was not declared in this scope
-  
 //  Dir dir = SPIFFS.openDir("/");
-//  String fileUnit;
-//  unsigned int fileSize;
-//  char fileChar[32];
-//  
-//  while (dir.next()) {
-//    String fileName = dir.fileName();
-//    fileName.toCharArray(fileChar, 32);
-//    if (!isServerListable(fileChar)) continue;
-//    
-//    if (dir.fileSize()<1024) {
-//        fileUnit = " bytes";
-//        fileSize = dir.fileSize();
-//        } else {
-//          fileUnit = " Kb";
-//          fileSize = dir.fileSize()/1024;
-//        }
-//    fileName.remove(0,1);
-//    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-//    body += fileName+"</a></td>";
-//    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-//    body += "<td>";
-//    if (isServerDeleteable(fileName)) {
-//      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-//    }
-//    body += "</td>";
-//    body += "</tr>";
-//  }
+    File root = SPIFFS.open("/");
+    if(!root){
+        Serial.println("- failed to open directory");
+        return;
+}
+  String fileUnit;
+  unsigned int fileSize;
+  char fileChar[32];
+  
+    File file = root.openNextFile();
+    while(file){
+    String fileName = file.name();
+    fileName.toCharArray(fileChar, 32);
+    if (!isServerListable(fileChar)) continue;
+    
+    if (file.size()<1024) {
+        fileUnit = " bytes";
+        fileSize = file.size();
+        } else {
+          fileUnit = " Kb";
+          fileSize = file.size()/1024;
+        }
+    fileName.remove(0,1);
+    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
+    body += fileName+"</a></td>";
+    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
+    body += "<td>";
+    if (isServerDeleteable(fileName)) {
+      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
+    }
+    body += "</td>";
+    body += "</tr>";
+  }
     
   body += "</table>";
 
