@@ -30,10 +30,10 @@
 #include <WebServer.h>
 #include <U8x8lib.h>        // OLED display
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
-// CONFIGURATION
+// CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
-bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
+bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 17;                                 // set GPIO16 as the slave select
