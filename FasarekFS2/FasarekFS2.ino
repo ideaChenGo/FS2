@@ -664,16 +664,15 @@ void saveParamCallback(){
 
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
-  String host = slave_cam_ip;
-  if (host == "") return;
+  if (slave_cam_ip == "") return;
   
-//  if (!client.connect(host, 80)) {
-//    Serial.println("connection to shutterPing() host:"+String(host)+" failed");
-//    return;
-//  }
+  if (!client.connect(slave_cam_ip, 80)) {
+    Serial.println("connection to shutterPing() host:"+String(slave_cam_ip)+" failed");
+    return;
+  }
     // This will send the request to the server
   client.print(String("GET ") + "/capture HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
+               "Host: " + slave_cam_ip + "\r\n" + 
                "Connection: close\r\n\r\n");
   unsigned long timeout = millis();
   while (client.available() == 0) {
