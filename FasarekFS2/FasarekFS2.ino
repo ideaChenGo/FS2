@@ -32,7 +32,7 @@
 
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -140,7 +140,7 @@ void setup() {
 
    if (SPIFFS.exists("/config.json")) {
       Serial.println("Reading config file");
-      File configFile = SPIFFS.open("/config.json", "r");
+      File configFile = SPIFFS.open("/config.json", FILE_READ);
       if (configFile) {
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
@@ -241,7 +241,7 @@ void setup() {
     Serial.println("upload_path:"+String(upload_path));
     Serial.println("jpeg_size:"+String(jpeg_size));
     
-    File configFile = SPIFFS.open("/config.json", "w");
+    File configFile = SPIFFS.open("/config.json", FILE_WRITE);
     if (!configFile) {
       Serial.println("Failed to open config file for writing");
     }
@@ -721,8 +721,10 @@ void serverCameraParams() {
 }
 
 void serverListFiles() {
+  
   String fileName = "/template.html";
   webTemplate = "";
+  Serial.println("serverListFiles() Trying to open "+fileName);
   
   if (SPIFFS.exists(fileName)) {
     File file = SPIFFS.open(fileName, "r");
@@ -750,28 +752,30 @@ void serverListFiles() {
   char fileChar[32];
   
     File file = root.openNextFile();
-    while(file){
-    String fileName = file.name();
-    fileName.toCharArray(fileChar, 32);
-    if (!isServerListable(fileChar)) continue;
     
-    if (file.size()<1024) {
-        fileUnit = " bytes";
-        fileSize = file.size();
-        } else {
-          fileUnit = " Kb";
-          fileSize = file.size()/1024;
-        }
-    fileName.remove(0,1);
-    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-    body += fileName+"</a></td>";
-    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-    body += "<td>";
-    if (isServerDeleteable(fileName)) {
-      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-    }
-    body += "</td>";
-    body += "</tr>";
+    while(file){
+      String fileName = file.name();
+      fileName.toCharArray(fileChar, 32);
+      if (!isServerListable(fileChar)) continue;
+      
+      if (file.size()<1024) {
+          fileUnit = " bytes";
+          fileSize = file.size();
+          } else {
+            fileUnit = " Kb";
+            fileSize = file.size()/1024;
+          }
+      fileName.remove(0,1);
+      body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
+      body += fileName+"</a></td>";
+      body += "<td>"+ String(fileSize)+fileUnit +"</td>";
+      body += "<td>";
+      if (isServerDeleteable(fileName)) {
+        body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
+      }
+      body += "</td>";
+      body += "</tr>";
+      file = root.openNextFile();
   }
     
   body += "</table>";
