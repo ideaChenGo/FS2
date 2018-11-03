@@ -35,3 +35,15 @@ String getContentType(String filename) {
   return "text/plain";
 }
 
+/**
+ * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
+ */
+void printMessage(String message, bool newline = true) {
+  if (newline) {
+    Serial.println(message);
+  } else {
+    Serial.print(message);
+  }
+  return;
+}
+

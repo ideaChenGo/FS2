@@ -130,14 +130,14 @@ void setup() {
   
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
-  Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  // Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
+  printMessage("FS2 Camera setup()");
+  printMessage("> Selected Camera model is: "+cameraModel);
+  
   // Read configuration from FS json
   if (SPIFFS.begin()) {
-    Serial.println("SPIFFS file system mounted");
+    printMessage("SPIFFS file system mounted");
 
    if (SPIFFS.exists("/config.json")) {
-      Serial.println("Reading config file");
       File configFile = SPIFFS.open("/config.json", FILE_READ);
       if (configFile) {
         size_t size = configFile.size();
@@ -148,9 +148,7 @@ void setup() {
         DynamicJsonBuffer jsonBuffer;
         JsonObject& json = jsonBuffer.parseObject(buf.get());
         json.printTo(Serial);
-        if (json.success()) {
-          Serial.println("\nparsed json");
-          
+        if (json.success()) {          
           strcpy(timelapse, json["timelapse"]);
           strcpy(upload_host, json["upload_host"]);
           strcpy(upload_path, json["upload_path"]);
@@ -158,17 +156,16 @@ void setup() {
           strcpy(jpeg_size, json["jpeg_size"]);
 
         } else {
-          Serial.println("Failed to load json config");
+          printMessage("> FS: Failed to load config.json");
         }
         configFile.close();
       }
     }
   } else {
-    Serial.println("Failed to mount FS");
+    printMessage("> FS mount failed: Is sketch data upload done ?");
   }
 //end read
 
-  // Todo: Add "param" ?
   std::vector<const char *> menu = {"wifi", "sep", "param","sep", "info", "restart"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
@@ -182,7 +179,7 @@ void setup() {
   WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
  
  if (onlineMode) {
-  Serial.println(">>>>>>>>>ONLINE Mode");
+  printMessage("> Camera is on ONLINE Mode");
   // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
@@ -213,7 +210,7 @@ void setup() {
     wm.autoConnect(configModeAP);
   }
  } else {
-  Serial.println(">>>>>>>>>OFFLINE Mode");
+   printMessage("> Camera is on OFFLINE Mode");
  }
 
   // Read updated parameters
@@ -224,7 +221,7 @@ void setup() {
   strcpy(jpeg_size, param_jpeg_size.getValue());
 
   if (shouldSaveConfig) {
-    Serial.println("CONNECTED and shouldSaveConfig == TRUE");
+    printMessage("> Saving new config.json on camera");
    
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
@@ -241,7 +238,7 @@ void setup() {
     
     File configFile = SPIFFS.open("/config.json", FILE_WRITE);
     if (!configFile) {
-      Serial.println("Failed to open config file for writing");
+      printMessage("> Failed to open config file for writing");
     }
 
     json.printTo(Serial);
@@ -252,9 +249,6 @@ void setup() {
   // Convert timelapse(char) to timelapseInt and then to  milliseconds
   int timelapseInt = atoi(timelapse);
   timelapseMillis = (timelapseInt) * 1000;
-  Serial.println("");
-  //Serial.println("source:"+String(timelapse));
-  //Serial.println("timelapseMillis: "+String(timelapseMillis));
 
   // Button events
   buttonShutter.setReleasedHandler(shutterReleased); // Takes picture
@@ -275,7 +269,7 @@ void setup() {
   myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
   temp = myCAM.read_reg(ARDUCHIP_TEST1);
   if (temp != 0x55) {
-    Serial.println(F("SPI1 interface Error!"));
+    printMessage("ERROR: SPI interface does not work. Check ArduCam wiring to board");
     while (1);
   }
 // TODO Refactor this ugly casting to string just because c adds the 0 operator at end of chars
@@ -302,9 +296,9 @@ void setup() {
   myCAM.rdSensorReg8_8(11, &pid);
 
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
-    Serial.println(F("Can't find OV2640 module!"));
+    printMessage("ERROR: Can't find ArduCam OV2640 module!");
   } else {
-    Serial.println(F("ArduCAM model OV2640 detected."));
+    printMessage("ArduCAM model OV2640 detected.");
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -339,9 +333,10 @@ void setup() {
     myCAM.rdSensorReg16_8(12299, &pid);
 
    if((vid != 0x56) || (pid != 0x42)) {
-     Serial.println("Can't find OV5642 module!");
+     printMessage("ERROR: Can't find ArduCam OV5642 module!");
+     
    } else {
-     Serial.println("ArduCAM model OV5642 detected.");
+     printMessage("ArduCAM model OV5642 detected.");
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
@@ -350,7 +345,7 @@ void setup() {
    }
   }
 
-  Serial.println("ArduCAM "+cameraModel+" > JPEG_Size: "+jpeg_size+ " ID: " + String(jpeg_size_id));
+  printMessage("JPG size: "+String(jpeg_size)+ " (" + String(jpeg_size_id)+") PHOTO counter:"+memory.photoCount);
 
   myCAM.clear_fifo_flag();
 
@@ -359,7 +354,7 @@ void setup() {
   // - second argument is the IP address to advertise
   if (onlineMode) {
     if (!MDNS.begin(localDomain)) {
-      Serial.println("Error setting up MDNS responder!");
+      printMessage("> Error setting up MDNS responder!");
       while(1) { 
         delay(500);
       }
@@ -367,7 +362,7 @@ void setup() {
     // Add service to MDNS-SD
     MDNS.addService("http", "tcp", 80);
     
-    Serial.println("mDNS responder started");
+    printMessage("mDNS responder started: http://"+String(localDomain)+".local");
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
@@ -381,7 +376,6 @@ void setup() {
     
     server.onNotFound(handleWebServerRoot);
     server.begin();
-    Serial.println(F("Server started"));
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
   }
@@ -397,18 +391,19 @@ String camCapture(ArduCAM myCAM) {
   uint32_t bytesAvailableSpiffs = SPIFFS.totalBytes()-SPIFFS.usedBytes();
   uint32_t len  = myCAM.read_fifo_length();
 
-  Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
-  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
+  printMessage("> photoCount: "+String(memory.photoCount));
+  printMessage("> "+String(bytesAvailableSpiffs/1024)+ " Kb. available in FS");
   if (len*2 > bytesAvailableSpiffs) {
     memory.photoCount = 1;
-    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
+    printMessage("photoCount reseted: It will overwrite old pictures (not enough space available)");
   }
   long full_length;
   
   if (len == 0) //0 kb
   {
-    Serial.println(F("fifo_length = 0"));
-    return "Could not read fifo (length is 0)";
+    message = "ERROR: Camera memory length is 0";
+    printMessage(message);
+    return message;
   }
 
   myCAM.CS_LOW();
@@ -428,13 +423,8 @@ String camCapture(ArduCAM myCAM) {
   "Content-Transfer-Encoding: binary\n\n";
   
    full_length = start_request.length() + len + end_request.length();
-    Serial.println("start_request len: "+String(start_request.length()));
-    Serial.println("end_request len: "+String(end_request.length()));
-    Serial.println("camCapture fifo_length="+String(len));
-    Serial.println("POST "+String(upload_path)+" HTTP/1.1");
-    Serial.println("Host: "+String(upload_host));
-    Serial.println("Content-Length: "+String(full_length)); 
-
+   printMessage("Sending "+String(full_length/1024)+ " Kb. image to: "+String(upload_host)+String(upload_path));
+    
     client.println("POST "+String(upload_path)+" HTTP/1.1");
     client.println("Host: "+String(upload_host));
     client.println("Content-Type: multipart/form-data; boundary="+boundary);
@@ -478,9 +468,10 @@ String camCapture(ArduCAM myCAM) {
     int timeout = millis() + 5000;
   while (client.available() == 0) {
     if (timeout - millis() < 0) {
-      Serial.println(">>> Client Timeout !");
+      message = "> Client Timeout waiting for reply after sending JPG (5 sec. timeout reached)";
+      printMessage(message);
       client.stop();
-      return "Timeout of 5 seconds reached";
+      return message;
     }
   }
   while(client.available()) {
@@ -495,51 +486,47 @@ String camCapture(ArduCAM myCAM) {
      }
   }
   response.trim();
-  Serial.println( " RESPONSE after headers: " );
-  Serial.println( response );
+  
+  //Serial.println( response );
   client.stop();
   return response;
   } else {
-    Serial.println("ERROR: Could not connect to "+String(upload_host));
-    return "ERROR Could not connect to host";
+    message = "ERROR: Could not connect to "+String(upload_host);
+    printMessage(message);
+    return message;
   }
 }
-
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
   
   isStreaming = false;
   start_capture();
-  Serial.println(F("CAM Capturing"));
+  printMessage("> Camera capturing image ", false);
 
   int total_time = 0;
   total_time = millis();
   while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
   total_time = millis() - total_time;
-  Serial.print(F("capture total_time used (in miliseconds):"));
-  Serial.println(total_time, DEC);
+  printMessage("(DONE in "+String(total_time)+" miliseconds)");
+  
 
   if (slave_cam_ip != "" && onlineMode) {
+    printMessage("Shutter ping to "+String(slave_cam_ip)+" sent ", false);
     shutterPing();
   }
   total_time = 0;
-
-  Serial.println(F("CAM Capture Done."));
   total_time = millis();
   String imageUrl = camCapture(myCAM);
   total_time = millis() - total_time;
-  Serial.print(F("send total_time used (in miliseconds):"));
-  Serial.println(total_time, DEC);
-  Serial.println(F("CAM send Done."));
   
   digitalWrite(ledStatus, LOW);
   if (onlineMode) {
+    printMessage("Image url: "+imageUrl);
     server.send(200, "text/html", "<div id='m'><small>"+imageUrl+
               "</small><br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
   }
 }
-
 
 void serverStream() {
   isStreaming = true;
@@ -557,9 +544,8 @@ void serverStream() {
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
 
-    if (len == 0 ) //0 kb
+    if (len == 0) //0 kb
     {
-      Serial.println(F("Size is 0."));
       continue;
     }
     myCAM.CS_LOW();
@@ -632,18 +618,19 @@ void handleWebServerRoot() {
     server.streamFile(file, getContentType(fileName));
     file.close();
   } else {
-    Serial.println("Could not read "+fileName+" from SPIFFS");
-    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
+    message = "ERROR: handleWebServerRoot could not read "+fileName;
+    printMessage(message);
+    server.send(200, "text/html", message);
     return;
   }
   
   server.send(200, "text/html");
 }
 
-void configModeCallback (WiFiManager *myWiFiManager) {
+void configModeCallback(WiFiManager *myWiFiManager) {
   digitalWrite(ledStatus, HIGH);
   message = "CAM can't get online. Entering config mode. Please connect to access point "+String(configModeAP);
-  Serial.println(message);
+  printMessage(message);
   Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
@@ -651,8 +638,7 @@ void saveConfigCallback() {
   memory.resetWifiSettings = false;
   EEPROM_writeAnything(0, memory);
   shouldSaveConfig = true;
-  Serial.println("saveConfigCallback fired: WM Saving settings");
- 
+  printMessage("Saving configuration in camera");
 }
 
 void saveParamCallback(){
@@ -667,7 +653,7 @@ void shutterPing() {
   if (slave_cam_ip == "") return;
   
   if (!client.connect(slave_cam_ip, 80)) {
-    Serial.println("connection to shutterPing() host:"+String(slave_cam_ip)+" failed");
+    printMessage(" (failed)");
     return;
   }
     // This will send the request to the server
@@ -677,7 +663,7 @@ void shutterPing() {
   unsigned long timeout = millis();
   while (client.available() == 0) {
     if (millis() - timeout > 100) {
-      Serial.println("Just a ping, we are not going to wait for response");
+      printMessage("> Pinged target "+String(slave_cam_ip));
       client.stop();
       return;
     }
@@ -686,7 +672,7 @@ void shutterPing() {
 
 void serverStartTimelapse() {
     digitalWrite(ledStatusTimelapse, HIGH);
-    Serial.println("long click: Enable timelapse");
+    printMessage("> Long click: TIMELAPSE enabled");
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
     server.send(200, "text/html", "<div id='m'>Start Timelapse</div>"+ javascriptFadeMessage);
@@ -694,12 +680,13 @@ void serverStartTimelapse() {
 
 void serverStopTimelapse() {
     digitalWrite(ledStatusTimelapse, LOW);
-    Serial.println("Disable timelapse");
+    printMessage("> TIMELAPSE disabled");
     captureTimeLapse = false;
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
 }
 
 void serverResetWifiSettings() {
+    printMessage("> Resseting WiFi settings, please connect to "+String(configModeAP)+" and setup a new connection");
     Serial.println("resetWifiSettings flag is saved on EEPROM");
     memory.resetWifiSettings = true;
     memory.photoCount = 1;
@@ -710,7 +697,7 @@ void serverResetWifiSettings() {
 }
 
 void serverCameraParams() {
-    Serial.println("serverCameraParams flag is saved on EEPROM");
+    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
     memory.saveParamCallback = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>Edit camera configuration using <b>Setup</b></div>"+ javascriptFadeMessage);
@@ -722,7 +709,7 @@ void serverListFiles() {
   
   String fileName = "/template.html";
   webTemplate = "";
-  Serial.println("serverListFiles() Trying to open "+fileName);
+  printMessage("Listing files on SPIFFS:");
   
   if (SPIFFS.exists(fileName)) {
     File file = SPIFFS.open(fileName, "r");
@@ -777,6 +764,7 @@ void serverListFiles() {
       }
       body += "</td>";
       body += "</tr>";
+      printMessage(fileName+ " "+ String(fileSize)+fileUnit);
       file = root.openNextFile();
   }
     
@@ -820,6 +808,7 @@ void serverDeleteFile() {
       String filename = server.arg(0);
       if(isServerDeleteable(filename)) {
          SPIFFS.remove("/"+filename);
+         printMessage("> Deleting "+ filename);
       }
       server.sendHeader("Location", "/fs/list", true);
       server.send (302, "text/plain", "");
@@ -855,13 +844,11 @@ bool isServerListable(char* filename) {
 // Button events
 void shutterReleased(Button2& btn) {
     digitalWrite(ledStatusTimelapse, LOW);
-    Serial.println("Released");
     captureTimeLapse = false;
     serverCapture();
 }
 void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
-    Serial.println("long click: Enable timelapse");
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
 }
@@ -875,6 +862,6 @@ void loop() {
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
     serverCapture();
-    Serial.println("Timelapse captured");
+    printMessage("> Timelapse captured");
   }
 }
