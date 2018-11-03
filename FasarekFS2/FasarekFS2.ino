@@ -784,7 +784,7 @@ void serverListFiles() {
   body += "</table>";
   body += "<br>Total KB: "+String(SPIFFS.totalBytes()/1024)+" Kb";
   body += "<br>Used KB: "+String(SPIFFS.usedBytes()/1024)+" Kb";
-  body += "<br>Avail KB: <b>"+String((SPIFFS.usedBytes()-SPIFFS.usedBytes())/1024)+" Kb</b><br>";
+  body += "<br>Avail KB: <b>"+String((SPIFFS.totalBytes()-SPIFFS.usedBytes())/1024)+" Kb</b><br>";
 
   webTemplate.replace("{{localDomain}}", localDomain);
   webTemplate.replace("{{home}}", "Camera UI");
