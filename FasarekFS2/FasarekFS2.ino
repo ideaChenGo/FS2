@@ -106,8 +106,6 @@ struct config_t
     bool saveParamCallback;
 } memory;
 
-
-
 void setup() {
   String cameraModel; 
   if (cameraModelId == 5) {
@@ -395,18 +393,16 @@ void start_capture() {
 
 
 String camCapture(ArduCAM myCAM) {
-    // Check if available bytes in SPIFFS
-//  FSInfo fs_info;
-//  SPIFFS.info(fs_info);
-//  uint32_t bytesAvailableSpiffs = fs_info.totalBytes-fs_info.usedBytes;
+   // Check if available bytes in SPIFFS
+  uint32_t bytesAvailableSpiffs = SPIFFS.totalBytes()-SPIFFS.usedBytes();
   uint32_t len  = myCAM.read_fifo_length();
 
   Serial.println(">>>>>>>>> photoCount: "+String(memory.photoCount));
-//  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
-//  if (len*2 > bytesAvailableSpiffs) {
-//    memory.photoCount = 1;
-//    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
-//  }
+  Serial.println(">>>>>>>>> bytesAvailableSpiffs: "+String(bytesAvailableSpiffs));
+  if (len*2 > bytesAvailableSpiffs) {
+    memory.photoCount = 1;
+    Serial.println(">>>>>>>>> IPhoto len > bytesAvailableSpiffs) THEN Reset photoCount to 1");
+  }
   long full_length;
   
   if (len == 0) //0 kb
@@ -786,12 +782,9 @@ void serverListFiles() {
   }
     
   body += "</table>";
-
-//  FSInfo fs_info;
-//  SPIFFS.info(fs_info);
-//  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
-//  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
-//  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
+  body += "<br>Total KB: "+String(SPIFFS.totalBytes()/1024)+" Kb";
+  body += "<br>Used KB: "+String(SPIFFS.usedBytes()/1024)+" Kb";
+  body += "<br>Avail KB: <b>"+String((SPIFFS.usedBytes()-SPIFFS.usedBytes())/1024)+" Kb</b><br>";
 
   webTemplate.replace("{{localDomain}}", localDomain);
   webTemplate.replace("{{home}}", "Camera UI");
