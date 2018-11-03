@@ -6,15 +6,14 @@
 // |  __| \___ \  / / 
 // | |    ____) |/ /_ 
 // |_|   |_____/|____|     WiFi instant Camera
-                   
+          
 // PIN Definition for the ESP-32
-// CS   16  Can be defined
+// CS   16  Conflicts with OLED ?
 // MOSI 23
 // MISO 19
 // SCK  5
 // SDA  21
 // SCL  22
-// This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
 #include "FS.h"
 #include "SPIFFS.h"
 #include <EEPROM.h>
@@ -29,15 +28,16 @@
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
 #include <WebServer.h>
-
+#include <U8x8lib.h>        // OLED display
+U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
-byte  CS = 16;                                 // set GPIO16 as the slave select
-
+byte  CS = 17;                                 // set GPIO16 as the slave select
+// NOTE: Select a Chip Select (CS) that does not conflict with any other connected SPI
 #include "memorysaver.h"  // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
 // ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
@@ -106,7 +106,26 @@ struct config_t
     bool saveParamCallback;
 } memory;
 
+/**
+ * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
+ */
+void printMessage(String message, bool newline = true, bool displayClear = false) {
+  if (displayClear) {
+    u8x8.clear();
+  }
+  u8x8.print(message);
+  if (newline) {
+    u8x8.print("\n");
+    Serial.println(message);
+  } else {
+    Serial.print(message);
+  }
+  return;
+}
+
 void setup() {
+  u8x8.begin();
+  u8x8.setFont(u8x8_font_chroma48medium8_r);
   String cameraModel; 
   if (cameraModelId == 5) {
     // Please select the hardware platform for your camera module in the ../libraries/ArduCAM/memorysaver.h file
@@ -130,12 +149,17 @@ void setup() {
   
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
-  printMessage("FS2 Camera setup()");
-  printMessage("> Selected Camera model is: "+cameraModel);
-  
+  printMessage("FS2 CAMERA");
+  printMessage(" ______ _____");
+  printMessage("|  ____/ ____|");
+  printMessage("| |__ | (___  ");
+  printMessage("|  __| \\___ \\ ");
+  printMessage("| |    ____) |");
+  printMessage("|_|   |_____/ 2");
+
   // Read configuration from FS json
   if (SPIFFS.begin()) {
-    printMessage("SPIFFS file system mounted");
+    //printMessage("SPIFFS mount OK");
 
    if (SPIFFS.exists("/config.json")) {
       File configFile = SPIFFS.open("/config.json", FILE_READ);
@@ -156,13 +180,14 @@ void setup() {
           strcpy(jpeg_size, json["jpeg_size"]);
 
         } else {
-          printMessage("> FS: Failed to load config.json");
+          printMessage("ERR load config");
         }
         configFile.close();
       }
     }
   } else {
-    printMessage("> FS mount failed: Is sketch data upload done ?");
+    printMessage("ERR FS failed");
+    printMessage("FFS Formatted?");
   }
 //end read
 
@@ -179,7 +204,7 @@ void setup() {
   WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
  
  if (onlineMode) {
-  printMessage("> Camera is on ONLINE Mode");
+  //printMessage("> Camera is on ONLINE Mode");
   // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
@@ -210,7 +235,7 @@ void setup() {
     wm.autoConnect(configModeAP);
   }
  } else {
-   printMessage("> Camera is on OFFLINE Mode");
+   printMessage("OFFLINE Mode");
  }
 
   // Read updated parameters
@@ -221,7 +246,7 @@ void setup() {
   strcpy(jpeg_size, param_jpeg_size.getValue());
 
   if (shouldSaveConfig) {
-    printMessage("> Saving new config.json on camera");
+    printMessage("Save config.json", true, true);
    
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
@@ -238,7 +263,7 @@ void setup() {
     
     File configFile = SPIFFS.open("/config.json", FILE_WRITE);
     if (!configFile) {
-      printMessage("> Failed to open config file for writing");
+      printMessage("ERR config file");
     }
 
     json.printTo(Serial);
@@ -269,7 +294,8 @@ void setup() {
   myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
   temp = myCAM.read_reg(ARDUCHIP_TEST1);
   if (temp != 0x55) {
-    printMessage("ERROR: SPI interface does not work. Check ArduCam wiring to board");
+    printMessage("ERR SPI :Check");
+    printMessage("ArduCam wiring");
     while (1);
   }
 // TODO Refactor this ugly casting to string just because c adds the 0 operator at end of chars
@@ -296,9 +322,9 @@ void setup() {
   myCAM.rdSensorReg8_8(11, &pid);
 
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
-    printMessage("ERROR: Can't find ArduCam OV2640 module!");
+    printMessage("ERR conn OV2640");
   } else {
-    printMessage("ArduCAM model OV2640 detected.");
+    printMessage("CAMERA READY\n\n", true, true);
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -333,10 +359,10 @@ void setup() {
     myCAM.rdSensorReg16_8(12299, &pid);
 
    if((vid != 0x56) || (pid != 0x42)) {
-     printMessage("ERROR: Can't find ArduCam OV5642 module!");
+     printMessage("ERR conn OV5642");
      
    } else {
-     printMessage("ArduCAM model OV5642 detected.");
+     printMessage("OK > OV5642");
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
@@ -345,7 +371,8 @@ void setup() {
    }
   }
 
-  printMessage("JPG size: "+String(jpeg_size)+ " (" + String(jpeg_size_id)+") PHOTO counter:"+memory.photoCount);
+  printMessage("size: "+String(jpeg_size)+"\n");
+  printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
 
@@ -354,7 +381,6 @@ void setup() {
   // - second argument is the IP address to advertise
   if (onlineMode) {
     if (!MDNS.begin(localDomain)) {
-      printMessage("> Error setting up MDNS responder!");
       while(1) { 
         delay(500);
       }
@@ -362,7 +388,7 @@ void setup() {
     // Add service to MDNS-SD
     MDNS.addService("http", "tcp", 80);
     
-    printMessage("mDNS responder started: http://"+String(localDomain)+".local");
+    printMessage("http://"+String(localDomain)+".local");
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
@@ -391,17 +417,17 @@ String camCapture(ArduCAM myCAM) {
   uint32_t bytesAvailableSpiffs = SPIFFS.totalBytes()-SPIFFS.usedBytes();
   uint32_t len  = myCAM.read_fifo_length();
 
-  printMessage("> photoCount: "+String(memory.photoCount));
-  printMessage("> "+String(bytesAvailableSpiffs/1024)+ " Kb. available in FS");
+  printMessage("photoCount: "+String(memory.photoCount));
+  printMessage(String(bytesAvailableSpiffs/1024)+ " Kb avail");
   if (len*2 > bytesAvailableSpiffs) {
     memory.photoCount = 1;
-    printMessage("photoCount reseted: It will overwrite old pictures (not enough space available)");
+    printMessage("count reseted 1");
   }
   long full_length;
   
   if (len == 0) //0 kb
   {
-    message = "ERROR: Camera memory length is 0";
+    message = "ERR read memory";
     printMessage(message);
     return message;
   }
@@ -423,8 +449,8 @@ String camCapture(ArduCAM myCAM) {
   "Content-Transfer-Encoding: binary\n\n";
   
    full_length = start_request.length() + len + end_request.length();
-   printMessage("Sending "+String(full_length/1024)+ " Kb. image to: "+String(upload_host)+String(upload_path));
-    
+   printMessage(String(full_length/1024)+ " Kb sent");
+   printMessage(String(upload_host));
     client.println("POST "+String(upload_path)+" HTTP/1.1");
     client.println("Host: "+String(upload_host));
     client.println("Content-Type: multipart/form-data; boundary="+boundary);
@@ -469,7 +495,7 @@ String camCapture(ArduCAM myCAM) {
   while (client.available() == 0) {
     if (timeout - millis() < 0) {
       message = "> Client Timeout waiting for reply after sending JPG (5 sec. timeout reached)";
-      printMessage(message);
+      printMessage("Client timeout");
       client.stop();
       return message;
     }
@@ -492,7 +518,8 @@ String camCapture(ArduCAM myCAM) {
   return response;
   } else {
     message = "ERROR: Could not connect to "+String(upload_host);
-    printMessage(message);
+    printMessage("Conn failed to");
+    printMessage(String(upload_host));
     return message;
   }
 }
@@ -502,17 +529,17 @@ void serverCapture() {
   
   isStreaming = false;
   start_capture();
-  printMessage("> Camera capturing image ", false);
+  printMessage("CAPTURING", true, true);
 
   int total_time = 0;
   total_time = millis();
   while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
   total_time = millis() - total_time;
-  printMessage("(DONE in "+String(total_time)+" miliseconds)");
+  printMessage("DONE "+String(total_time));
   
 
   if (slave_cam_ip != "" && onlineMode) {
-    printMessage("Shutter ping to "+String(slave_cam_ip)+" sent ", false);
+    printMessage("PING to\n"+String(slave_cam_ip));
     shutterPing();
   }
   total_time = 0;
@@ -522,13 +549,14 @@ void serverCapture() {
   
   digitalWrite(ledStatus, LOW);
   if (onlineMode) {
-    printMessage("Image url: "+imageUrl);
+    //printMessage("Image url: "+imageUrl);
     server.send(200, "text/html", "<div id='m'><small>"+imageUrl+
               "</small><br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
   }
 }
 
 void serverStream() {
+  printMessage("STREAMING");
   isStreaming = true;
   WiFiClient client = server.client();
 
@@ -630,7 +658,9 @@ void handleWebServerRoot() {
 void configModeCallback(WiFiManager *myWiFiManager) {
   digitalWrite(ledStatus, HIGH);
   message = "CAM can't get online. Entering config mode. Please connect to access point "+String(configModeAP);
-  printMessage(message);
+  printMessage("CAM offline");
+  printMessage("connect to ");
+  printMessage(String(configModeAP));
   Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
@@ -638,7 +668,7 @@ void saveConfigCallback() {
   memory.resetWifiSettings = false;
   EEPROM_writeAnything(0, memory);
   shouldSaveConfig = true;
-  printMessage("Saving configuration in camera");
+  printMessage("Saving config");
 }
 
 void saveParamCallback(){
@@ -653,7 +683,7 @@ void shutterPing() {
   if (slave_cam_ip == "") return;
   
   if (!client.connect(slave_cam_ip, 80)) {
-    printMessage(" (failed)");
+    printMessage("Ping failed");
     return;
   }
     // This will send the request to the server
