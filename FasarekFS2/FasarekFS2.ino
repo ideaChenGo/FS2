@@ -755,8 +755,13 @@ void serverListFiles() {
     
     while(file){
       String fileName = file.name();
+      Serial.println("serverListFiles() Trying to list: "+fileName);
       fileName.toCharArray(fileChar, 32);
-      if (!isServerListable(fileChar)) continue;
+      if (!isServerListable(fileChar)) {
+        // Move the pointer to avoid endless loop
+        file = root.openNextFile();
+        continue;
+      }
       
       if (file.size()<1024) {
           fileUnit = " bytes";
