@@ -417,7 +417,7 @@ String camCapture(ArduCAM myCAM) {
   uint32_t bytesAvailableSpiffs = SPIFFS.totalBytes()-SPIFFS.usedBytes();
   uint32_t len  = myCAM.read_fifo_length();
 
-  printMessage("photoCount: "+String(memory.photoCount));
+  //printMessage("photoCount: "+String(memory.photoCount));
   printMessage(String(bytesAvailableSpiffs/1024)+ " Kb avail");
   if (len*2 > bytesAvailableSpiffs) {
     memory.photoCount = 1;
@@ -529,17 +529,18 @@ void serverCapture() {
   
   isStreaming = false;
   start_capture();
-  printMessage("CAPTURING", true, true);
+  printMessage("CAPTURING\n", true, true);
 
   int total_time = 0;
   total_time = millis();
-  while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
+  while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)); 
   total_time = millis() - total_time;
-  printMessage("DONE "+String(total_time));
+ 
+  //Serial.print("capture total_time used in millisec:");
+  Serial.println(total_time, DEC);
+  printMessage("DONE in "+String(total_time)+ " ms.\n");
   
-
-  if (slave_cam_ip != "" && onlineMode) {
-    printMessage("PING to\n"+String(slave_cam_ip));
+  if (onlineMode) {
     shutterPing();
   }
   total_time = 0;
@@ -658,7 +659,8 @@ void handleWebServerRoot() {
 void configModeCallback(WiFiManager *myWiFiManager) {
   digitalWrite(ledStatus, HIGH);
   message = "CAM can't get online. Entering config mode. Please connect to access point "+String(configModeAP);
-  printMessage("CAM offline");
+  delay(500);
+  printMessage("CAM offline",true,true);
   printMessage("connect to ");
   printMessage(String(configModeAP));
   Serial.println(myWiFiManager->getConfigPortalSSID());
@@ -680,7 +682,8 @@ void saveParamCallback(){
 
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
-  if (slave_cam_ip == "") return;
+  if (strlen(slave_cam_ip) == 0) return;
+  printMessage("PING to\n"+String(slave_cam_ip));
   
   if (!client.connect(slave_cam_ip, 80)) {
     printMessage("Ping failed");
