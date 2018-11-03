@@ -554,6 +554,9 @@ void serverStream() {
   server.sendContent(response);
 
   while (isStreaming) {
+    if (onlineMode) { 
+      server.handleClient(); 
+    }
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
@@ -755,7 +758,6 @@ void serverListFiles() {
     
     while(file){
       String fileName = file.name();
-      Serial.println("serverListFiles() Trying to list: "+fileName);
       fileName.toCharArray(fileChar, 32);
       if (!isServerListable(fileChar)) {
         // Move the pointer to avoid endless loop
