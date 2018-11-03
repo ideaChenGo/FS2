@@ -526,6 +526,9 @@ void serverStream() {
   server.sendContent(response);
 
   while (isStreaming) {
+   if (onlineMode) { 
+    server.handleClient(); 
+   }
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
