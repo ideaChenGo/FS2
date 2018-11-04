@@ -324,7 +324,8 @@ void setup() {
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
     printMessage("ERR conn OV2640");
   } else {
-    printMessage("CAMERA READY\n\n", true, true);
+    printMessage("CAMERA READY\n", true, true);
+    printMessage(IpAddress2String(WiFi.localIP())+"\n");
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -372,7 +373,7 @@ void setup() {
   }
 
   printMessage("size: "+String(jpeg_size)+"\n");
-  printMessage("Counter: "+String(memory.photoCount)+"\n");
+  //printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
 
