@@ -399,7 +399,8 @@ void setup() {
     }
     // Add service to MDNS-SD
     MDNS.addService("http", "tcp", 80);
-    printMessage("mDns:");
+    
+    u8cursor = u8cursor+u8newline;
     printMessage("http://"+String(localDomain)+".local"); 
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
@@ -514,7 +515,7 @@ String camCapture(ArduCAM myCAM) {
   }
   while(client.available()) {
     rx_line = client.readStringUntil('\r');
-    Serial.println( rx_line );
+   
     if (rx_line.length() <= 1) { // a blank line denotes end of headers
         skip_headers = false;
       }
@@ -549,23 +550,45 @@ void serverCapture() {
   while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)); 
   total_time = millis() - total_time;
  
-  //Serial.print("capture total_time used in millisec:");
+  Serial.print("capture total_time used in millisec:");
   Serial.println(total_time, DEC);
-  printMessage("DONE in "+String(total_time)+ " ms.\n");
   
   if (onlineMode) {
     shutterPing();
   }
   total_time = 0;
   total_time = millis();
-  String imageUrl = camCapture(myCAM);
+  String response = camCapture(myCAM);
   total_time = millis() - total_time;
+  printMessage("Upload in "+String(total_time)+ " ms.");
+
+  size_t size = response.length();
+  Serial.print(size);
+
+  // Allocate a buffer to store contents of the file.
+  //  std::unique_ptr<char[]> buf(new char[size]);
+  //  response.toCharArray(buf.get(), size);
   
-  digitalWrite(ledStatus, LOW);
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& json = jsonBuffer.parseObject(response);
+   
+   if (!json.success()) {
+    printMessage("JSON parse fail");
+    return;
+   }
+  
+  //json.printTo(Serial);
+  char imageUrl[300]; // YES this needs to have a length
+  strcpy(imageUrl, json["url"]);
+
+  JsonArray& arr = json["xbm"];
+  Serial.print(sizeof(arr));
+  
+  digitalWrite(ledStatus, LOW); 
+
   if (onlineMode) {
-    //printMessage("Image url: "+imageUrl);
-    server.send(200, "text/html", "<div id='m'><small>"+imageUrl+
-              "</small><br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
+    server.send(200, "text/html", "<div id='m'><small>"+String(imageUrl)+
+              "</small><br><img src='"+String(imageUrl)+"' width='400'></div>"+ javascriptFadeMessage);
   }
 }
 
