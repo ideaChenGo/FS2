@@ -28,8 +28,8 @@
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
 #include <WebServer.h>
-#include <U8x8lib.h>        // OLED display
-U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
+#include <U8g2lib.h>        // OLED display
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
@@ -105,27 +105,37 @@ struct config_t
     bool resetWifiSettings;
     bool saveParamCallback;
 } memory;
-
+byte u8cursor = 1;
+byte u8newline = 5;
 /**
  * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
  */
 void printMessage(String message, bool newline = true, bool displayClear = false) {
   if (displayClear) {
-    u8x8.clear();
+    // Clear buffer and reset cursor to first line
+    u8g2.clearBuffer();
+    u8cursor = u8newline;
   }
-  u8x8.print(message);
   if (newline) {
-    u8x8.print("\n");
+    u8cursor = u8cursor+u8newline;
     Serial.println(message);
   } else {
     Serial.print(message);
+  }
+  u8g2.setCursor(0, u8cursor);
+  u8g2.print(message);
+  u8g2.sendBuffer();
+  u8cursor = u8cursor+u8newline;
+  if (u8cursor > 60) {
+    u8cursor = u8newline;
   }
   return;
 }
 
 void setup() {
-  u8x8.begin();
-  u8x8.setFont(u8x8_font_chroma48medium8_r);
+  u8g2.begin();
+  u8g2.setCursor(0, u8cursor);
+  u8g2.setFont(u8g2_font_pcsenior_8r);
   String cameraModel; 
   if (cameraModelId == 5) {
     // Please select the hardware platform for your camera module in the ../libraries/ArduCAM/memorysaver.h file
@@ -149,13 +159,13 @@ void setup() {
   
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
-  printMessage("FS2 CAMERA");
+  //printMessage("FS2 CAMERA");
   printMessage(" ______ _____");
   printMessage("|  ____/ ____|");
   printMessage("| |__ | (___  ");
-  printMessage("|  __| \\___ \\ ");
+  printMessage("|  __| \\___ \\");
   printMessage("| |    ____) |");
-  printMessage("|_|   |_____/ 2");
+  printMessage("|_|   |_____/");
 
   // Read configuration from FS json
   if (SPIFFS.begin()) {
@@ -324,8 +334,8 @@ void setup() {
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
     printMessage("ERR conn OV2640");
   } else {
-    printMessage("CAMERA READY\n", true, true);
-    printMessage(IpAddress2String(WiFi.localIP())+"\n");
+    printMessage("CAMERA READY", true, true);
+    printMessage(IpAddress2String(WiFi.localIP()));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -363,7 +373,7 @@ void setup() {
      printMessage("ERR conn OV5642");
      
    } else {
-     printMessage("OK > OV5642");
+     printMessage("model OV5642");
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
@@ -371,8 +381,9 @@ void setup() {
      myCAM.OV5642_set_JPEG_size(jpeg_size_id);
    }
   }
-
-  printMessage("size: "+String(jpeg_size)+"\n");
+  
+  u8cursor = u8cursor+u8newline;
+  printMessage("Res: "+ String(jpeg_size));
   //printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
@@ -388,8 +399,8 @@ void setup() {
     }
     // Add service to MDNS-SD
     MDNS.addService("http", "tcp", 80);
-    
-    printMessage("http://"+String(localDomain)+".local");
+    printMessage("mDns:");
+    printMessage("http://"+String(localDomain)+".local"); 
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
@@ -419,7 +430,7 @@ String camCapture(ArduCAM myCAM) {
   uint32_t len  = myCAM.read_fifo_length();
 
   //printMessage("photoCount: "+String(memory.photoCount));
-  printMessage(String(bytesAvailableSpiffs/1024)+ " Kb avail");
+  //printMessage(String(bytesAvailableSpiffs/1024)+ " Kb avail");
   if (len*2 > bytesAvailableSpiffs) {
     memory.photoCount = 1;
     printMessage("count reseted 1");
@@ -531,6 +542,7 @@ void serverCapture() {
   isStreaming = false;
   start_capture();
   printMessage("CAPTURING\n", true, true);
+  u8cursor = u8cursor+u8newline;
 
   int total_time = 0;
   total_time = millis();
