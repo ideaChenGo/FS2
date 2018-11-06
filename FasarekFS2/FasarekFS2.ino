@@ -200,6 +200,7 @@ static unsigned char image[] U8X8_PROGMEM  = {
  * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
  */
 void printMessage(String message, bool newline = true, bool displayClear = false) {
+  u8g2.setDrawColor(1);
   if (displayClear) {
     // Clear buffer and reset cursor to first line
     u8g2.clearBuffer();
@@ -693,6 +694,7 @@ void serverCapture() {
     c++;      
   }
   digitalWrite(ledStatus, LOW);
+  u8g2.setDrawColor(0);
   u8g2.clearBuffer();
   u8g2.drawXBM( 0, 0, atoi(thumbWidth), atoi(thumbHeight), (const uint8_t *)image);
   u8g2.sendBuffer();
