@@ -270,7 +270,7 @@ void setup() {
         configFile.readBytes(buf.get(), size);
         DynamicJsonBuffer jsonBuffer;
         JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
+        //json.printTo(Serial);
         if (json.success()) {          
           strcpy(timelapse, json["timelapse"]);
           strcpy(upload_host, json["upload_host"]);
@@ -666,7 +666,7 @@ void serverCapture() {
     return;
    }
   
-  //json.printTo(Serial);
+  json.printTo(Serial);
   char imageUrl[300]; // YES this needs to have a length
   char thumbWidth[3];
   char thumbHeight[3];
