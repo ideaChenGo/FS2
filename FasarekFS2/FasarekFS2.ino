@@ -8,7 +8,7 @@
 // |_|   |_____/|____|     WiFi instant Camera
                    
 // PIN Definition for the ESP-32
-// CS   16  Can be defined
+// CS   17  Can be defined
 // MOSI 23
 // MISO 19
 // SCK  5
@@ -36,7 +36,7 @@ byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !I
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
-byte  CS = 16;                                 // set GPIO16 as the slave select
+byte  CS = 17;                                 // set GPIO16 as the slave select
 
 #include "memorysaver.h"  // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
