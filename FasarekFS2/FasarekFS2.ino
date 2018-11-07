@@ -494,6 +494,7 @@ void setup() {
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
     server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
     server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
     server.on("/fs/list", HTTP_GET, serverListFiles);
@@ -716,12 +717,12 @@ void serverStream() {
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   server.sendContent(response);
   int counter = 0;
-  Serial.println("Counting images for debug:");
+  //Serial.println("Counting images for debug:");
+  
   while (true) {
-    Serial.print(String(counter)+" ");
-    if (onlineMode) { 
-      server.handleClient();
-    }
+    counter++;
+    //Serial.print(String(counter)+" ");
+
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
       delay(1);
@@ -771,6 +772,7 @@ void serverStream() {
           //Write bufferSize bytes image data to file
           myCAM.CS_HIGH();
           if (!client.connected()) {
+            printMessage("Client disconnected 2");
             client.stop(); is_header = false; break;
           }
           client.write(&buffer[0], bufferSize);
@@ -788,7 +790,7 @@ void serverStream() {
       }
     }
     if (!client.connected()) {
-      printMessage("Client disconnected 2");
+      printMessage("Client disconnected 3");
       client.stop(); is_header = false; break;
     }
   }
@@ -874,6 +876,11 @@ void serverStopTimelapse() {
     printMessage("TIMELAPSE disabled");
     captureTimeLapse = false;
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
+}
+
+void serverStopStream() {
+    printMessage("STREAM stopped", true, true);
+    server.send(200, "text/html", "<div id='m'>Streaming stoped</div>"+ javascriptFadeMessage);
 }
 
 void serverResetWifiSettings() {

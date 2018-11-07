@@ -16,10 +16,9 @@
             <div class='col-md-12'>
                 <h4>cam.local &nbsp;<small><a href="/fs/list">File Manager</a></small></h4>
 
-                <form id='f2' action='/stream' target='frame' method='GET'>
-                    <input type='submit' value='Stream' class='btn btn-light'>
-                    <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
-                </form>
+                <input id='stream' data-on='Stream ON' data-off='Disabled' type='checkbox'>
+                <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
+
 
                 <form id='f1' action='/capture' target='frame' method='GET'>
                     <div class='row' style="margin-top:.5em;margin-bottom:.5em">
@@ -49,6 +48,18 @@
 </body>
 
 <script>
+    $(function () {
+        $('#stream').bootstrapToggle({
+            on: 'Stream ON', off: 'Stream OFF'
+        });
+        $('#stream').change(function() {
+            if ($(this).prop('checked')) {
+                frame.location = '/stream';
+            } else {
+                frame.location = '/stream/stop';
+            }
+        })
+    });
     $(function () {
         $('#timelapse').bootstrapToggle({
             on: 'Timelapse ON', off: 'Timelapse OFF'
