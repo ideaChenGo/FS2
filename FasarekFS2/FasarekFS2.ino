@@ -45,7 +45,6 @@ byte  CS = 17;                                 // set GPIO16 as the slave select
 // INTERNAL GLOBALS
 // When timelapse is on will capture picture every N seconds
 boolean captureTimeLapse;
-boolean isStreaming = false;
 static unsigned long lastTimeLapse;
 unsigned long timelapseMillis;
 // Flag for saving data in config.json
@@ -236,11 +235,11 @@ void setup() {
   }
   EEPROM.begin(12);
   Serial.begin(115200);
-  // Find out what are this PINS on ESP32
-  //Serial.println(MOSI);
-  //Serial.println(MISO);
-  //Serial.println(SCK);
-  //Serial.println(SDA);
+  // Find out what are this PINS on ESP32 
+  //Serial.print("MOSI");Serial.println(MOSI);
+  //Serial.print("MISO");Serial.println(MISO);
+  //Serial.print("SCK");Serial.println(SCK);
+  //Serial.print("SDA");Serial.println(SDA);
 
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Arducam Chip select)
   pinMode(CS, OUTPUT);
@@ -629,10 +628,15 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
-  
-  isStreaming = false;
+  // Set back the selected resolution
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+  }
+
   start_capture();
-  printMessage("CAPTURING\n", true, true);
+  printMessage("CAPTURING", true, true);
   u8cursor = u8cursor+u8newline;
 
   int total_time = 0;
@@ -651,13 +655,7 @@ void serverCapture() {
   String response = camCapture(myCAM);
   total_time = millis() - total_time;
   printMessage("Upload in "+String(total_time)+ " ms.");
-
-  size_t size = response.length();
-  Serial.print(size);
-
-  // Allocate a buffer to store contents of the file.
-  //  std::unique_ptr<char[]> buf(new char[size]);
-  //  response.toCharArray(buf.get(), size);
+  Serial.print("RENDER THUMB json bytes:"+String(response.length())+" ");
   
   DynamicJsonBuffer jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(response);
@@ -674,25 +672,25 @@ void serverCapture() {
   strcpy(imageUrl, json["url"]);
   strcpy(thumbWidth, json["thumb_width"]);
   strcpy(thumbHeight, json["thumb_height"]);
-  Serial.print("thumbWidth:"+String(thumbWidth));
-  Serial.print("thumbHeight:"+String(thumbHeight));
- 
   JsonArray& arr = json["xbm"];
-  Serial.print(sizeof(arr));
-  // using C++11 syntax (preferred):
+  
+  Serial.print(" thumbWidth:"+String(thumbWidth));
+  Serial.print(" thumbHeight:"+String(thumbHeight));
+  
   int c=0;
   const char* tempx;
+  // using C++11 syntax (preferred)
   for (auto value : arr) {
     // Assign the json array to xtemp
     tempx = value.as<char*>();
    
     image[c] = strtol(tempx, NULL, 16);
-
-    if (c<10) {
-    Serial.print("i:");Serial.print(image[c]);Serial.print(" ");
-    }
+    // Preview first 10 lines for debugging
+    //if (c<10) { Serial.print("i:");Serial.print(image[c]);Serial.print(" "); }
     c++;      
   }
+    Serial.println(" pixels readed:"+String(c));
+    
   digitalWrite(ledStatus, LOW);
   u8g2.setDrawColor(0);
   u8g2.clearBuffer();
@@ -707,28 +705,38 @@ void serverCapture() {
 
 void serverStream() {
   printMessage("STREAMING");
-  isStreaming = true;
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(2);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(1);
+  }
   WiFiClient client = server.client();
 
   String response = "HTTP/1.1 200 OK\r\n";
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   server.sendContent(response);
-
-  while (isStreaming) {
+  int counter = 0;
+  Serial.println("Counting images for debug:");
+  while (true) {
+    Serial.print(String(counter)+" ");
     if (onlineMode) { 
-      server.handleClient(); 
+      server.handleClient();
     }
     start_capture();
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
+    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
+      delay(1);
+    }
     size_t len = myCAM.read_fifo_length();
 
     if (len == 0) //0 kb
     {
+      Serial.println("Camera fifo is 0");
       continue;
     }
     myCAM.CS_LOW();
     myCAM.set_fifo_burst();
     if (!client.connected()) {
+      printMessage("Client disconnected 1");
       client.stop(); is_header = false; break;
     }
     response = "--frame\r\n";
@@ -745,7 +753,7 @@ void serverStream() {
       {
         buffer[i++] = temp;  //save the last  0XD9
         //Write the remain bytes in the buffer
-        myCAM.CS_HIGH();;
+        myCAM.CS_HIGH();
         if (!client.connected()) {
           client.stop(); is_header = false; break;
         }
@@ -780,6 +788,7 @@ void serverStream() {
       }
     }
     if (!client.connected()) {
+      printMessage("Client disconnected 2");
       client.stop(); is_header = false; break;
     }
   }
@@ -854,7 +863,7 @@ void shutterPing() {
 
 void serverStartTimelapse() {
     digitalWrite(ledStatusTimelapse, HIGH);
-    printMessage("> Long click: TIMELAPSE enabled");
+    printMessage("TIMELAPSE enabled");
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
     server.send(200, "text/html", "<div id='m'>Start Timelapse</div>"+ javascriptFadeMessage);
@@ -862,7 +871,7 @@ void serverStartTimelapse() {
 
 void serverStopTimelapse() {
     digitalWrite(ledStatusTimelapse, LOW);
-    printMessage("> TIMELAPSE disabled");
+    printMessage("TIMELAPSE disabled");
     captureTimeLapse = false;
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
 }
