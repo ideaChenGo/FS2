@@ -346,6 +346,7 @@ void setup() {
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
     server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
     server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
     server.on("/fs/list", HTTP_GET, serverListFiles);
@@ -526,9 +527,6 @@ void serverStream() {
   server.sendContent(response);
 
   while (isStreaming) {
-   if (onlineMode) { 
-    server.handleClient(); 
-   }
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
@@ -668,6 +666,11 @@ void serverStopTimelapse() {
     Serial.println("Disable timelapse");
     captureTimeLapse = false;
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
+}
+
+void serverStopStream() {
+    printMessage("STREAM stopped", true, true);
+    server.send(200, "text/html", "<div id='m'>Streaming stoped</div>"+ javascriptFadeMessage);
 }
 
 void serverResetWifiSettings() {

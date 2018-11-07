@@ -16,10 +16,9 @@
             <div class='col-md-12'>
                 <h4>cam.local &nbsp;<small><a href="/fs/list">File Manager</a></small></h4>
 
-                <form id='f2' action='/stream' target='frame' method='GET'>
-                    <input type='submit' value='Stream' class='btn btn-light'>
-                    <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
-                </form>
+                <input id='stream' data-on='Stream ON' data-off='Disabled' type='checkbox'>
+                <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
+
 
                 <form id='f1' action='/capture' target='frame' method='GET'>
                     <div class='row' style="margin-top:.5em;margin-bottom:.5em">
@@ -30,7 +29,18 @@
                 </form>
 
                 <iframe name='frame' width='100%' height='400' frameborder="0"></iframe>
-                <button onclick="frame.location='/wifi/reset'" class="btn btn-sm btn-danger">Reset WiFi credentials on next start</button>
+                <div class='row'>
+                    <div class='col-md-6'>
+                        <button onclick="frame.location='/wifi/reset'"
+                                class="btn btn-sm btn-danger"
+                                title="Creates the CAM accesspoint so you can set up a new WiFi connection">Reset WiFi Credentials</button>
+                    </div>
+                    <div class='col-md-6'>
+                        <button onclick="frame.location='/camera/settings'"
+                                class="btn btn-sm btn-default form-control"
+                                title="This option does not change WiFi settings but let's you edit Camera setup">Restart and edit Camera settings</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -38,6 +48,18 @@
 </body>
 
 <script>
+    $(function () {
+        $('#stream').bootstrapToggle({
+            on: 'Stream ON', off: 'Stream OFF'
+        });
+        $('#stream').change(function() {
+            if ($(this).prop('checked')) {
+                frame.location = '/stream';
+            } else {
+                frame.location = '/stream/stop';
+            }
+        })
+    });
     $(function () {
         $('#timelapse').bootstrapToggle({
             on: 'Timelapse ON', off: 'Timelapse OFF'
