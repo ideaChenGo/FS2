@@ -22,7 +22,9 @@
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
-
+// If you want to add a display, make sure to get the Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
+//#include <U8g2lib.h>        // OLED display
+//U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
@@ -94,7 +96,34 @@ struct config_t
     bool resetWifiSettings;
 } memory;
 
+byte u8cursor = 1;
+byte u8newline = 5;
 
+/**
+ * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
+ */
+void printMessage(String message, bool newline = true, bool displayClear = false) {
+  //u8g2.setDrawColor(1);
+  if (displayClear) {
+    // Clear buffer and reset cursor to first line
+    // u8g2.clearBuffer();
+    u8cursor = u8newline;
+  }
+  if (newline) {
+    //u8cursor = u8cursor+u8newline;
+    Serial.println(message);
+  } else {
+    Serial.print(message);
+  }
+  //u8g2.setCursor(0, u8cursor);
+  //u8g2.print(message);
+  //u8g2.sendBuffer();
+  u8cursor = u8cursor+u8newline;
+  if (u8cursor > 60) {
+    u8cursor = u8newline;
+  }
+  return;
+}
 
 void setup() {
   String cameraModel; 
@@ -525,7 +554,7 @@ void serverStream() {
   String response = "HTTP/1.1 200 OK\r\n";
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   server.sendContent(response);
-
+  int counter = 0;
   while (isStreaming) {
     // Use a handleClient only 1 every 99 times
     if (counter % 99 == 0) {
