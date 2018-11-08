@@ -661,15 +661,15 @@ void serverCapture() {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(response);
    
-   if (!json.success()) {
+  if (!json.success()) {
     printMessage("JSON parse fail");
     server.send(200, "text/html", "<div id='m'>JSON parse error. Debug:</div>"+response+ javascriptFadeMessage);
     delay(100);
     return;
-   }
+  }
   
-  json.printTo(Serial);
-  char imageUrl[300]; // YES this needs to have a length
+  //json.printTo(Serial); // Only for debugging purpouses, may kill everything
+  char imageUrl[300];
   char thumbWidth[3];
   char thumbHeight[3];
   strcpy(imageUrl, json["url"]);
@@ -692,7 +692,7 @@ void serverCapture() {
     //if (c<10) { Serial.print("i:");Serial.print(image[c]);Serial.print(" "); }
     c++;      
   }
-    Serial.println(" pixels readed:"+String(c));
+    Serial.println(" pixels loaded:"+String(c));
     
   digitalWrite(ledStatus, LOW);
   u8g2.setDrawColor(0);
@@ -719,16 +719,15 @@ void serverStream() {
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   server.sendContent(response);
   int counter = 0;
-  //Serial.println("Counting images for debug:");
   
   while (true) {
     counter++;
-    //Serial.print(String(counter)+" ");
-
-    start_capture();
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
-      delay(1);
+    if (counter % 99 == 0) {
+       server.handleClient(); 
+       Serial.print(String(counter)+" % 99 Matched");
     }
+    start_capture();
+    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
 
     if (len == 0) //0 kb
