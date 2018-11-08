@@ -51,6 +51,8 @@ Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
 
+// We use WiFi Manager to setup connections and camera settings
+WiFiManager wm;
 WiFiClient client;
 
 // Makes a div id="m" containing response message to dissapear after 6 seconds
@@ -94,6 +96,7 @@ struct config_t
 {
     byte photoCount = 1;
     bool resetWifiSettings;
+    bool saveParamCallback;
 } memory;
 
 byte u8cursor = 1;
@@ -183,7 +186,7 @@ void setup() {
 //end read
 
   // Todo: Add "param" ?
-  std::vector<const char *> menu = {"wifi", "sep", "info"};
+  std::vector<const char *> menu = {"wifi", "sep", "param", "info"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -197,7 +200,6 @@ void setup() {
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
-  WiFiManager wm;
   // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
@@ -211,11 +213,20 @@ void setup() {
   wm.addParameter(&param_jpeg_size);
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
+  wm.setSaveParamsCallback(saveParamCallback);
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-  wm.autoConnect(configModeAP);
+    // If saveParamCallback is called then on next restart trigger config portal to update camera params
+  if (memory.saveParamCallback) {
+    // Let's do this just one time: Restarting again should connect to previous WiFi
+    memory.saveParamCallback = false;
+    EEPROM_writeAnything(0, memory);
+    wm.startConfigPortal(configModeAP);
+  } else {
+    wm.autoConnect(configModeAP);
+  }
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
@@ -382,7 +393,7 @@ void setup() {
     server.on("/fs/download", HTTP_GET, serverDownloadFile);
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
-    
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
     server.onNotFound(handleWebServerRoot);
     server.begin();
     Serial.println(F("Server started"));
@@ -663,6 +674,13 @@ void saveConfigCallback() {
  
 }
 
+void saveParamCallback(){
+  shouldSaveConfig = true;
+  delay(100);
+  wm.stopConfigPortal();
+  Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
+}
+
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
   WiFiClient client;
@@ -713,6 +731,15 @@ void serverResetWifiSettings() {
     memory.photoCount = 1;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting...</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
+    delay(500);
+    ESP.restart();
+}
+
+void serverCameraParams() {
+    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
+    memory.saveParamCallback = true;
+    EEPROM_writeAnything(0, memory);
+    server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
 }
