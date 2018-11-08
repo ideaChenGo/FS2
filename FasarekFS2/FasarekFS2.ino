@@ -527,6 +527,11 @@ void serverStream() {
   server.sendContent(response);
 
   while (isStreaming) {
+    // Use a handleClient only 1 every 99 times
+    if (counter % 99 == 0) {
+       server.handleClient();
+       Serial.print(String(counter)+" % 99 Matched");
+    }
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
