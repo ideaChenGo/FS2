@@ -7,8 +7,8 @@
 // | |    ____) |/ /_ 
 // |_|   |_____/|____|     WiFi instant Camera
           
-// PIN Definition for the ESP-32
-// CS   16  Conflicts with OLED ?
+// PIN  Definition for the ESP-32
+// CS   17  Camera CS. Check for conflicts with any other SPI (OLED, etc)
 // MOSI 23
 // MISO 19
 // SCK  5
@@ -225,6 +225,7 @@ void setup() {
   u8g2.begin();
   u8g2.setCursor(0, u8cursor);
   u8g2.setFont(u8g2_font_pcsenior_8r);
+  u8g2.setDisplayRotation(U8G2_R2); // U8G2_R0 No rotation, landscape
   String cameraModel; 
   if (cameraModelId == 5) {
     // Please select the hardware platform for your camera module in the ../libraries/ArduCAM/memorysaver.h file
