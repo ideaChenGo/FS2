@@ -1,6 +1,8 @@
 # FS2
 ## ESP8266 WiFi powered digital Camera
 
+Este es el branch de Carlos para el Wemos D1.
+
 ### The FS2 is a digital Polaroid that uploads the photo instantly to the cloud
 This project serves as a base to explore Arducam possibilities in combination with a WiFI "System on a Chip" such as ESP8266 to create a simple WiFi point-and-shoot digital camera.
 This is a work in progress, and only schematics is provided, but it can work out of the box if you can connect 8 Serial Parallel Interface cables from the camera to a Wemos D1 or similar and upload this example with the described requirements. Please open an issue if you can't compile it and I will try to help and fill the missing requirements.
