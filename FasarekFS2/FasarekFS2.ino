@@ -663,6 +663,8 @@ void serverCapture() {
    
    if (!json.success()) {
     printMessage("JSON parse fail");
+    server.send(200, "text/html", "<div id='m'>JSON parse error. Debug:</div>"+response+ javascriptFadeMessage);
+    delay(100);
     return;
    }
   
