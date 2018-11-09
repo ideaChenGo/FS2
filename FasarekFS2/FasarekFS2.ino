@@ -77,7 +77,6 @@ String end_request = "\n--"+boundary+"--\n";
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
 bool is_header = false;
-bool resetWifiSettings;
 
 WebServer server(80);
 
@@ -102,7 +101,7 @@ struct config_t
 {
     byte photoCount = 1;
     bool resetWifiSettings;
-    bool saveParamCallback;
+    bool editSetup;
 } memory;
 byte u8cursor = 1;
 byte u8newline = 5;
@@ -326,9 +325,9 @@ void setup() {
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
   // If saveParamCallback is called then on next restart trigger config portal to update camera params
-  if (memory.saveParamCallback) {
+  if (memory.editSetup) {
     // Let's do this just one time: Restarting again should connect to previous WiFi
-    memory.saveParamCallback = false;
+    memory.editSetup = false;
     EEPROM_writeAnything(0, memory);
     wm.startConfigPortal(configModeAP);
   } else {
@@ -898,7 +897,7 @@ void serverResetWifiSettings() {
 
 void serverCameraParams() {
     printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
-    memory.saveParamCallback = true;
+    memory.editSetup = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>Edit camera configuration using <b>Setup</b></div>"+ javascriptFadeMessage);
     delay(500);
