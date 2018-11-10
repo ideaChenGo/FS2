@@ -7,11 +7,13 @@
 // | |    ____) |/ /_ 
 // |_|   |_____/|____|     WiFi instant Camera
           
-// PIN  Definition for the ESP-32
+// PINS     Please check in your board datasheet or comment the
+//          Serial.print after  setup()  to use the right GPIOs
+// Definition for the ESP-32 Heltec:
 // CS   17  Camera CS. Check for conflicts with any other SPI (OLED, etc)
 // MOSI 23
 // MISO 19
-// SCK  18
+// SCK  18 -> May change depending on your board
 // SDA  21
 // SCL  22
 #include "FS.h"
@@ -32,7 +34,7 @@
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -236,10 +238,10 @@ void setup() {
   EEPROM.begin(12);
   Serial.begin(115200);
   // Find out what are this PINS on ESP32 
-  //Serial.print("MOSI");Serial.println(MOSI);
-  //Serial.print("MISO");Serial.println(MISO);
-  //Serial.print("SCK");Serial.println(SCK);
-  //Serial.print("SDA");Serial.println(SDA);
+  //Serial.print("MOSI:");Serial.println(MOSI);
+  //Serial.print("MISO:");Serial.println(MISO);
+  //Serial.print("SCK:");Serial.println(SCK);
+  //Serial.print("SDA:");Serial.println(SDA);
 
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Arducam Chip select)
   pinMode(CS, OUTPUT);
@@ -826,7 +828,6 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   printMessage("CAM offline",true,true);
   printMessage("connect to ");
   printMessage(String(configModeAP));
-  Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
 void saveConfigCallback() {
