@@ -16,6 +16,9 @@
 // SCK  18 -> May change depending on your board
 // SDA  21
 // SCL  22
+// SHU  38 Shutter button 
+// LED  12 ledStatus
+// LED  13 ledStatusTimelapse
 #include "FS.h"
 #include "SPIFFS.h"
 #include <EEPROM.h>
@@ -34,7 +37,7 @@
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -52,13 +55,10 @@ unsigned long timelapseMillis;
 // Flag for saving data in config.json
 bool shouldSaveConfig = false;
 
-byte D3 = 11;
-byte D4 = 12;
-byte D8 = 13;
-// Outputs / Inputs (Shutter button D3)
-Button2 buttonShutter = Button2(D3);
-const int ledStatus = D4;
-const int ledStatusTimelapse = D8;
+// Outputs / Inputs (Shutter button)
+Button2 buttonShutter = Button2(4);
+const int ledStatus = 12;
+const int ledStatusTimelapse = 13;
 
 WiFiManager wm;
 WiFiClient client;
