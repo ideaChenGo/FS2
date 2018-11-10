@@ -16,7 +16,7 @@
 // SCK  18 -> May change depending on your board
 // SDA  21
 // SCL  22
-// SHU  38 Shutter button 
+// SHU  04 Shutter button 
 // LED  12 ledStatus
 // LED  13 ledStatusTimelapse
 #include "FS.h"
