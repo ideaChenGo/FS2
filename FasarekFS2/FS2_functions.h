@@ -36,14 +36,12 @@ String getContentType(String filename) {
 }
 
 /**
- * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
+ * Convert the IP to string so we can send the display
  */
-void printMessage(String message, bool newline = true) {
-  if (newline) {
-    Serial.println(message);
-  } else {
-    Serial.print(message);
-  }
-  return;
+String IpAddress2String(const IPAddress& ipAddress)
+{
+  return String(ipAddress[0]) + String(".") +\
+  String(ipAddress[1]) + String(".") +\
+  String(ipAddress[2]) + String(".") +\
+  String(ipAddress[3])  ;
 }
-
