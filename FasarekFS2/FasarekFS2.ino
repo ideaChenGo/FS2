@@ -393,6 +393,7 @@ void setup() {
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
     server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
     server.onNotFound(handleWebServerRoot);
     server.begin();
     Serial.println(F("Server started"));
@@ -524,7 +525,13 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
-  
+  // Set back the selected resolution
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+  }
+
   isStreaming = false;
   start_capture();
   Serial.println(F("CAM Capturing"));
@@ -558,6 +565,12 @@ void serverCapture() {
 
 
 void serverStream() {
+    printMessage("STREAMING");
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(2);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(1);
+}
   isStreaming = true;
   WiFiClient client = server.client();
 
@@ -566,6 +579,7 @@ void serverStream() {
   server.sendContent(response);
   int counter = 0;
   while (isStreaming) {
+    counter++;
     // Use a handleClient only 1 every 99 times
     if (counter % 99 == 0) {
        server.handleClient();
@@ -741,6 +755,22 @@ void serverCameraParams() {
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
+}
+
+/**
+ * Update camera settings (Effects / Exposure only on OV5642)
+ */
+void serverCameraSettings() {
+     String argument  = server.argName(0);
+     String setValue = server.arg(0);
+     Serial.println(argument);Serial.print(setValue);
+     if (cameraModelId == 5) {
+       myCAM.OV2640_set_Special_effects(setValue.toInt());
+     }
+     if (cameraModelId == 3) {
+       myCAM.OV5642_set_Special_effects(setValue.toInt());
+     }
+     server.send(200, "text/html", "<div id='m'>Setting updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
 }
 
 void serverListFiles() {

@@ -2,24 +2,64 @@
 <head>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css">
+
     <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap.native/2.0.24/bootstrap-native-v4.min.js"></script>
     <meta name='viewport' content='width=device-width,initial-scale=1'>
     <meta charset="UTF-8">
+    <style>
+        .inline-headers h4, .inline-headers h6 {
+            display: inline-block;
+            vertical-align: baseline;
+        }
+    </style>
 </head>
 
 <body>
-<main role='main'>
+
     <div class='container-fluid'>
         <div class='row'>
             <!-- TODO: Handle replacement tags like {{localDomain}} -->
             <div class='col-md-12'>
-                <h4>cam.local &nbsp;<small><a href="/fs/list">File Manager</a></small></h4>
-
+                <div class="row well inline-headers">
+                    <div class="col-md-6">
+                    <h4>cam.local</h4>
+                    </div>
+                        <div class="col-md-6 text-right">
+                    <h6><a href="/fs/list">File Manager</a></h6>
+                        </div>
+                </div>
+            </div>
+        </div>
+        <div class='row'>
+            <div class='col-md-12 text-right'>
                 <input id='stream' data-on='Stream ON' data-off='Disabled' type='checkbox'>
                 <input id='timelapse' data-on='Timelapse ON' data-off='Disabled' type='checkbox'>
-
-
+            </div>
+        </div>
+        <div class='row'>
+            <div class='col-md-12'>
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Effects
+                        <span class="caret"></span></button>
+                    <ul class="dropdown-menu">
+                        <li><a href="/set?effect=7" target='frame'>Normal (def)</a></li>
+                        <li><a href="/set?effect=4" target='frame'>Black&White</a></li>
+                        <li><a href="/set?effect=0" target='frame'>Antique</a></li>
+                        <li><a href="/set?effect=5" target='frame'>Color negative</a></li>
+                        <li><a href="/set?effect=6" target='frame'>BW negative</a></li>
+                        <li><a href="/set?effect=8" target='frame'>Sepia</a></li>
+                        <li><a href="/set?effect=3" target='frame'>Reddish</a></li>
+                        <li><a href="/set?effect=9"  target='frame'>Over exposure</a></li>
+                        <li><a href="/set?effect=10" target='frame'>Solarize</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class='row'>
+            <!-- TODO: Handle replacement tags like {{localDomain}} -->
+            <div class='col-md-12'>
                 <form id='f1' action='/capture' target='frame' method='GET'>
                     <div class='row' style="margin-top:.5em;margin-bottom:.5em">
                         <div class='col-md-12'>
@@ -44,7 +84,7 @@
             </div>
         </div>
     </div>
-</main>
+
 </body>
 
 <script>
