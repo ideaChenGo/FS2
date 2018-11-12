@@ -27,7 +27,7 @@
 //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -71,7 +71,6 @@ String end_request = "\n--"+boundary+"--\n";
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
 bool is_header = false;
-bool resetWifiSettings;
 
 ESP8266WebServer server(80);
 
@@ -96,7 +95,7 @@ struct config_t
 {
     byte photoCount = 1;
     bool resetWifiSettings;
-    bool saveParamCallback;
+    bool editSetup;
 } memory;
 
 byte u8cursor = 1;
@@ -219,9 +218,9 @@ void setup() {
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
     // If saveParamCallback is called then on next restart trigger config portal to update camera params
-  if (memory.saveParamCallback) {
+  if (memory.editSetup) {
     // Let's do this just one time: Restarting again should connect to previous WiFi
-    memory.saveParamCallback = false;
+    memory.editSetup = false;
     EEPROM_writeAnything(0, memory);
     wm.startConfigPortal(configModeAP);
   } else {
@@ -394,6 +393,7 @@ void setup() {
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
     server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
     server.onNotFound(handleWebServerRoot);
     server.begin();
     Serial.println(F("Server started"));
@@ -525,7 +525,13 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
-  
+  // Set back the selected resolution
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+  }
+
   isStreaming = false;
   start_capture();
   Serial.println(F("CAM Capturing"));
@@ -559,6 +565,12 @@ void serverCapture() {
 
 
 void serverStream() {
+    printMessage("STREAMING");
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(2);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(1);
+}
   isStreaming = true;
   WiFiClient client = server.client();
 
@@ -567,6 +579,7 @@ void serverStream() {
   server.sendContent(response);
   int counter = 0;
   while (isStreaming) {
+    counter++;
     // Use a handleClient only 1 every 99 times
     if (counter % 99 == 0) {
        server.handleClient();
@@ -737,11 +750,32 @@ void serverResetWifiSettings() {
 
 void serverCameraParams() {
     printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
-    memory.saveParamCallback = true;
+    memory.editSetup = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
+}
+
+/**
+ * Update camera settings (Effects / Exposure only on OV5642)
+ */
+void serverCameraSettings() {
+     String argument  = server.argName(0);
+     String setValue = server.arg(0);
+     if (argument == "effect") {
+       if (cameraModelId == 5) {
+         myCAM.OV2640_set_Special_effects(setValue.toInt());
+       }
+       if (cameraModelId == 3) {
+         Serial.print(setValue);Serial.print(" in OV5642 this still does not work: https://github.com/ArduCAM/Arduino/issues/377");
+         myCAM.OV5642_set_Special_effects(setValue.toInt());
+       }
+     }
+     if (argument == "exposure" && cameraModelId == 3) {
+         myCAM.OV5642_set_Exposure_level(setValue.toInt());
+     }
+     server.send(200, "text/html", "<div id='m'>"+argument+" updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
 }
 
 void serverListFiles() {
