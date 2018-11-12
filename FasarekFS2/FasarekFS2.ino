@@ -581,15 +581,15 @@ String camCapture(ArduCAM myCAM) {
         fsFile.write(&buffer[0], will_copy);
       }
       len -= will_copy;
+      delay(1);
   }
 
   if (fsFile && saveInSpiffs) {
     fsFile.close();
+    memory.photoCount++;
+    EEPROM_writeAnything(0, memory);
   }
 
-  memory.photoCount++;
-  EEPROM_writeAnything(0, memory);
-  
   client.println(end_request);
   myCAM.CS_HIGH(); 
 
