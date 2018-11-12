@@ -27,7 +27,7 @@
 //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -763,14 +763,19 @@ void serverCameraParams() {
 void serverCameraSettings() {
      String argument  = server.argName(0);
      String setValue = server.arg(0);
-     Serial.println(argument);Serial.print(setValue);
-     if (cameraModelId == 5) {
-       myCAM.OV2640_set_Special_effects(setValue.toInt());
+     if (argument == "effect") {
+       if (cameraModelId == 5) {
+         myCAM.OV2640_set_Special_effects(setValue.toInt());
+       }
+       if (cameraModelId == 3) {
+         Serial.print(setValue);Serial.print(" in OV5642 this still does not work: https://github.com/ArduCAM/Arduino/issues/377");
+         myCAM.OV5642_set_Special_effects(setValue.toInt());
+       }
      }
-     if (cameraModelId == 3) {
-       myCAM.OV5642_set_Special_effects(setValue.toInt());
+     if (argument == "exposure" && cameraModelId == 3) {
+         myCAM.OV5642_set_Exposure_level(setValue.toInt());
      }
-     server.send(200, "text/html", "<div id='m'>Setting updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
+     server.send(200, "text/html", "<div id='m'>"+argument+" updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
 }
 
 void serverListFiles() {

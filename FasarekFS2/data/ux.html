@@ -23,12 +23,10 @@
             <!-- TODO: Handle replacement tags like {{localDomain}} -->
             <div class='col-md-12'>
                 <div class="row well inline-headers">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                     <h4>cam.local</h4>
-                    </div>
-                        <div class="col-md-6 text-right">
                     <h6><a href="/fs/list">File Manager</a></h6>
-                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -39,7 +37,8 @@
             </div>
         </div>
         <div class='row'>
-            <div class='col-md-12'>
+            <!-- TODO: Unhide this if you want effects on the OV2642: Remove .d-none class -->
+            <div class="col-md-6 col-xs-6 d-none">
                 <div class="dropdown">
                     <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Effects
                         <span class="caret"></span></button>
@@ -57,6 +56,25 @@
                         <li><span style="color:#FFF">&#11044;</span>    <a href="/set?effect=10" target='frame'>Solarize</a></li>
                     </ul>
                 </div>
+            </div>
+            <div class="col-md-6 col-xs-6">
+                <div class="dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">Exposure
+                        <span class="caret"></span></button>
+                    <ul class="dropdown-menu">
+                        <li><span style="color:#101010">&#11044;</span>  <a href="/set?exposure=0" target='frame'>-5</a></li>
+                        <li><span style="color:#202020">&#11044;</span>  <a href="/set?exposure=1" target='frame'>-4</a></li>
+                        <li><span style="color:#404040">&#11044;</span>  <a href="/set?exposure=2" target='frame'>-3</a></li>
+                        <li><span style="color:#505050">&#11044;</span>  <a href="/set?exposure=3" target='frame'>-2</a></li>
+                        <li><span style="color:#585858">&#11044;</span>  <a href="/set?exposure=4" target='frame'>-1</a></li>
+                        <li><span style="color:#707070">&#11044;</span>  <a href="/set?exposure=5" target='frame'>Default</a></li>
+                        <li><span style="color:#888888">&#11044;</span>  <a href="/set?exposure=6" target='frame'>+1</a></li>
+                        <li><span style="color:#A0A0A0">&#11044;</span>  <a href="/set?exposure=7" target='frame'>+2</a></li>
+                        <li><span style="color:#A9A9A9">&#11044;</span>  <a href="/set?exposure=8" target='frame'>+3</a></li>
+                        <li><span style="color:#D0D0D0">&#11044;</span>  <a href="/set?exposure=9"  target='frame'>+4</a></li>
+                        <li><span style="color:#F5F5F5">&#11044;</span>  <a href="/set?exposure=10" target='frame'>+5</a></li>
+                    </ul>
+                 </div>
             </div>
         </div>
         <div class='row'>
