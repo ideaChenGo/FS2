@@ -5,7 +5,7 @@
 // | |__ | (___    ) |
 // |  __| \___ \  / / 
 // | |    ____) |/ /_ 
-// |_|   |_____/|____|     WiFi instant Camera
+// |_|   |_____/|____|     WiFi instant Camera ESP32 version
           
 // PINS     Please check in your board datasheet or comment the
 //          Serial.print after  setup()  to use the right GPIOs
@@ -31,13 +31,13 @@
 #include <SPI.h>
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
-#include "FS2_functions.h"; // Helper functions
 #include <WebServer.h>
 #include <U8g2lib.h>        // OLED display
+
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -67,7 +67,7 @@ String javascriptFadeMessage = "<script>setTimeout(function(){document.getElemen
 String message;
 
 // Note if saving to SPIFFS bufferSize needs to be 256, otherwise won't save correctly
-static const size_t bufferSize = 256;
+static const size_t bufferSize = 1024;
 static uint8_t buffer[bufferSize] = {0xFF};
 
 // UPLOAD Settings
@@ -106,6 +106,26 @@ struct config_t
 } memory;
 byte u8cursor = 1;
 byte u8newline = 5;
+
+#include "FS2helperFunctions.h"; // Helper methods: printMessage + EPROM
+#include "serverFileManager.h";  // Responds to the FS Routes
+// ROUTING Definitions
+void defineServerRouting() {
+    server.on("/capture", HTTP_GET, serverCapture);
+    server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
+    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
+    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
+    server.on("/fs/list", HTTP_GET, serverListFiles);           // FS
+    server.on("/fs/download", HTTP_GET, serverDownloadFile);    // FS
+    server.on("/fs/delete", HTTP_GET, serverDeleteFile);        // FS
+    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
+    server.on("/dynamicJavascript.js", HTTP_GET, serverDynamicJs); // Renders a one-line javascript
+    server.onNotFound(handleWebServerRoot);
+    server.begin();
+}
 
 // Default image (LOGO?)
 static unsigned char image[] U8X8_PROGMEM  = {
@@ -195,31 +215,6 @@ static unsigned char image[] U8X8_PROGMEM  = {
   0x80, 0x0F, 0xFF, 0xFF, 0x3F, 0x10, 0xFC, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
   0xFF, 0xFF, 0x67, 0x00, 0xD8, 0x1F, 0xFF, 0xFF, 0x7F, 0x10, 0xFE, 0xFF, 
   0xFF, 0xFF, 0xFF, 0xFF};
-/**
- * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
- */
-void printMessage(String message, bool newline = true, bool displayClear = false) {
-  u8g2.setDrawColor(1);
-  if (displayClear) {
-    // Clear buffer and reset cursor to first line
-    u8g2.clearBuffer();
-    u8cursor = u8newline;
-  }
-  if (newline) {
-    u8cursor = u8cursor+u8newline;
-    Serial.println(message);
-  } else {
-    Serial.print(message);
-  }
-  u8g2.setCursor(0, u8cursor);
-  u8g2.print(message);
-  u8g2.sendBuffer();
-  u8cursor = u8cursor+u8newline;
-  if (u8cursor > 60) {
-    u8cursor = u8newline;
-  }
-  return;
-}
 
 void setup() {
   u8g2.begin();
@@ -494,30 +489,15 @@ void setup() {
     
     u8cursor = u8cursor+u8newline;
     printMessage("http://"+String(localDomain)+".local"); 
-    // ROUTES
-    server.on("/capture", HTTP_GET, serverCapture);
-    server.on("/stream", HTTP_GET, serverStream);
-    server.on("/stream/stop", HTTP_GET, serverStopStream);
-    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
-    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
-    server.on("/fs/list", HTTP_GET, serverListFiles);
-    server.on("/fs/download", HTTP_GET, serverDownloadFile);
-    server.on("/fs/delete", HTTP_GET, serverDeleteFile);
-    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
-    server.on("/camera/settings", HTTP_GET, serverCameraParams);
-    server.on("/set", HTTP_GET, serverCameraSettings);
+    
+    // ROUTING
+    defineServerRouting();
     
     server.onNotFound(handleWebServerRoot);
     server.begin();
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
   }
-
-void start_capture() {
-  myCAM.clear_fifo_flag();
-  myCAM.start_capture();
-}
-
 
 String camCapture(ArduCAM myCAM) {
    // Check if available bytes in SPIFFS
@@ -710,97 +690,6 @@ void serverCapture() {
   }
 }
 
-void serverStream() {
-  printMessage("STREAMING");
-  if (cameraModelId == 5) {
-    myCAM.OV2640_set_JPEG_size(2);
-  } else if (cameraModelId == 3) {
-    myCAM.OV5642_set_JPEG_size(1);
-  }
-  WiFiClient client = server.client();
-
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-  server.sendContent(response);
-  int counter = 0;
-  
-  while (true) {
-    counter++;
-    if (counter % 99 == 0) {
-       server.handleClient(); 
-       Serial.print(String(counter)+" % 99 Matched");
-    }
-    start_capture();
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
-    size_t len = myCAM.read_fifo_length();
-
-    if (len == 0) //0 kb
-    {
-      Serial.println("Camera fifo is 0");
-      continue;
-    }
-    myCAM.CS_LOW();
-    myCAM.set_fifo_burst();
-    if (!client.connected()) {
-      printMessage("Client disconnected 1");
-      client.stop(); is_header = false; break;
-    }
-    response = "--frame\r\n";
-    response += "Content-Type: image/jpeg\r\n\r\n";
-    server.sendContent(response);
-    
-    while ( len-- )
-    {
-      temp_last = temp;
-      temp =  SPI.transfer(0x00);
-
-      //Read JPEG data from FIFO
-      if ( (temp == 0xD9) && (temp_last == 0xFF) ) //If find the end ,break while,
-      {
-        buffer[i++] = temp;  //save the last  0XD9
-        //Write the remain bytes in the buffer
-        myCAM.CS_HIGH();
-        if (!client.connected()) {
-          client.stop(); is_header = false; break;
-        }
-        client.write(&buffer[0], i);
-        is_header = false;
-        i = 0;
-      }
-      if (is_header == true)
-      {
-        //Write image data to buffer if not full
-        if (i < bufferSize)
-          buffer[i++] = temp;
-        else
-        {
-          //Write bufferSize bytes image data to file
-          myCAM.CS_HIGH();
-          if (!client.connected()) {
-            printMessage("Client disconnected 2");
-            client.stop(); is_header = false; break;
-          }
-          client.write(&buffer[0], bufferSize);
-          i = 0;
-          buffer[i++] = temp;
-          myCAM.CS_LOW();
-          myCAM.set_fifo_burst();
-        }
-      }
-      else if ((temp == 0xD8) & (temp_last == 0xFF))
-      {
-        is_header = true;
-        buffer[i++] = temp_last;
-        buffer[i++] = temp;
-      }
-    }
-    if (!client.connected()) {
-      printMessage("Client disconnected 3");
-      client.stop(); is_header = false; break;
-    }
-  }
-}
-
 /**
  * This is the home page and also the page that comes when a 404 is generated
  */
@@ -867,26 +756,6 @@ void shutterPing() {
   }
 }
 
-void serverStartTimelapse() {
-    digitalWrite(ledStatusTimelapse, HIGH);
-    printMessage("TIMELAPSE enabled");
-    captureTimeLapse = true;
-    lastTimeLapse = millis() + timelapseMillis;
-    server.send(200, "text/html", "<div id='m'>Start Timelapse</div>"+ javascriptFadeMessage);
-}
-
-void serverStopTimelapse() {
-    digitalWrite(ledStatusTimelapse, LOW);
-    printMessage("TIMELAPSE disabled");
-    captureTimeLapse = false;
-    server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
-}
-
-void serverStopStream() {
-    printMessage("STREAM stopped", true, true);
-    server.send(200, "text/html", "<div id='m'>Streaming stoped</div>"+ javascriptFadeMessage);
-}
-
 void serverResetWifiSettings() {
     printMessage("> Resseting WiFi settings, please connect to "+String(configModeAP)+" and setup a new connection");
     Serial.println("resetWifiSettings flag is saved on EEPROM");
@@ -905,158 +774,6 @@ void serverCameraParams() {
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>Edit camera configuration using <b>Setup</b></div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
-}
-/**
- * Update camera settings (Effects / Exposure only on OV5642)
- */
-void serverCameraSettings() {
-     String argument  = server.argName(0);
-     String setValue = server.arg(0);
-     Serial.println(argument);Serial.print(setValue);
-     if (cameraModelId == 5) {
-       myCAM.OV2640_set_Special_effects(setValue.toInt());
-     }
-     if (cameraModelId == 3) {
-       myCAM.OV5642_set_Special_effects(setValue.toInt());
-     }
-     server.send(200, "text/html", "<div id='m'>Setting updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
-}
-
-
-void serverListFiles() {
-  
-  String fileName = "/template.html";
-  webTemplate = "";
-  printMessage("Listing files on SPIFFS:");
-  
-  if (SPIFFS.exists(fileName)) {
-    File file = SPIFFS.open(fileName, "r");
-    while (file.available() != 0) {  
-      webTemplate += file.readStringUntil('\n');  
-    }
-    file.close();
-  } else {
-    Serial.println("Could not read "+fileName+" from SPIFFS");
-    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
-    return;
-  }
-  
-  String body = "<table class='table'>";
-  body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
-  //'Dir' was not declared in this scope
-//  Dir dir = SPIFFS.openDir("/");
-    File root = SPIFFS.open("/");
-    if(!root){
-        Serial.println("- failed to open directory");
-        return;
-}
-  String fileUnit;
-  unsigned int fileSize;
-  char fileChar[32];
-  
-    File file = root.openNextFile();
-    
-    while(file){
-      String fileName = file.name();
-      fileName.toCharArray(fileChar, 32);
-      if (!isServerListable(fileChar)) {
-        // Move the pointer to avoid endless loop
-        file = root.openNextFile();
-        continue;
-      }
-      
-      if (file.size()<1024) {
-          fileUnit = " bytes";
-          fileSize = file.size();
-          } else {
-            fileUnit = " Kb";
-            fileSize = file.size()/1024;
-          }
-      fileName.remove(0,1);
-      body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-      body += fileName+"</a></td>";
-      body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-      body += "<td>";
-      if (isServerDeleteable(fileName)) {
-        body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-      }
-      body += "</td>";
-      body += "</tr>";
-      printMessage(fileName+ " "+ String(fileSize)+fileUnit);
-      file = root.openNextFile();
-  }
-    
-  body += "</table>";
-  body += "<br>Total KB: "+String(SPIFFS.totalBytes()/1024)+" Kb";
-  body += "<br>Used KB: "+String(SPIFFS.usedBytes()/1024)+" Kb";
-  body += "<br>Avail KB: <b>"+String((SPIFFS.totalBytes()-SPIFFS.usedBytes())/1024)+" Kb</b><br>";
-
-  webTemplate.replace("{{localDomain}}", localDomain);
-  webTemplate.replace("{{home}}", "Camera UI");
-  webTemplate.replace("{{body}}", body);
-  
-  server.send(200, "text/html", webTemplate);
-}
-
-void serverDownloadFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      File download = SPIFFS.open("/"+filename, "r");
-      if (download) {
-        server.sendHeader("Content-Type", "text/text");
-        server.sendHeader("Content-Disposition", "attachment; filename="+filename);
-        server.sendHeader("Connection", "close");
-        server.streamFile(download, "application/octet-stream");
-        download.close();
-      } else {
-        server.send(404, "text/html", "file: "+ filename +" not found.");
-      }
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  } else {
-    server.send(404, "text/html", "No server parameters received.");
-  }
-}
-
-void serverDeleteFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      if(isServerDeleteable(filename)) {
-         SPIFFS.remove("/"+filename);
-         printMessage("> Deleting "+ filename);
-      }
-      server.sendHeader("Location", "/fs/list", true);
-      server.send (302, "text/plain", "");
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  }
-}
-
-bool isServerDeleteable(String filename) {
-  if (filename == "config.json"
-    ||filename == "template.html"
-    ||filename == "ux.html")
-  {
-    return false;
-  } 
-  return true;
-}
-  
-bool isServerListable(char* filename) {
-  int8_t len = strlen(filename);
-  bool result;
-  if (  strstr(strlwr(filename + (len - 4)), ".jpg")
-     || strstr(strlwr(filename + (len - 5)), ".json")
-    ) {
-    result = true;
-  } else {
-    result = false;
-  }
-  return result;
 }
 
 // Button events
