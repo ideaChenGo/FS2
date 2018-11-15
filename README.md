@@ -1,10 +1,17 @@
 # FS2
-## ESP8266 WiFi powered digital Camera
+## ESP8266 / ESP32 WiFi powered digital Camera
 
 ### The FS2 is a digital Polaroid that uploads the photo instantly to the cloud
-This project serves as a base to explore Arducam possibilities in combination with a WiFI "System on a Chip" such as ESP8266 to create a simple WiFi point-and-shoot digital camera.
+This project serves as a base to explore Arducam possibilities in combination with an Espressif WiFI "System on a Chip" to create a simple WiFi point-and-shoot digital camera.
 This is a work in progress, and only schematics is provided, but it can work out of the box if you can connect 8 Serial Parallel Interface cables from the camera to a Wemos D1 or similar and upload this example with the described requirements. Please open an issue if you can't compile it and I will try to help and fill the missing requirements.
 This is just the base program to enable you to have a fast demo to start with. The idea is that is fully open source DIY Camera where the users can modify and fully control the software that is running it. 
+
+### Branching 
+
+  * master (ESP8266 - stable)
+  * develop (ESP8266 - new features are tested here)
+  * board/esp32 (ESP32)
+  * board/esp32-oled (ESP32 oled ready, Heltec tested for any other please check datasheet to match I2C led panel communications)
 
 ### What is powering this camera
 This WiFi instant camera is powered by a 2000mA/hr LiOn battery and Espressif state of the art WiFi "System of a Chip" allowing to be about 15 hours online and take hundreds of pictures.
