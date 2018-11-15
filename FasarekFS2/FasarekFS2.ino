@@ -100,7 +100,24 @@ struct config_t
 byte u8cursor = 1;
 byte u8newline = 5;
 
-#include "FS2helperFunctions.h"; // Helper functions
+#include "FS2helperFunctions.h"; // Helper methods: printMessage + EPROM
+#include "serverFileManager.h";  // Responds to the FS Routes
+// ROUTING Definitions
+void defineServerRouting() {
+    server.on("/capture", HTTP_GET, serverCapture);
+    server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
+    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
+    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
+    server.on("/fs/list", HTTP_GET, serverListFiles);           // FS
+    server.on("/fs/download", HTTP_GET, serverDownloadFile);    // FS
+    server.on("/fs/delete", HTTP_GET, serverDeleteFile);        // FS
+    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
+    server.onNotFound(handleWebServerRoot);
+    server.begin();
+}
 
 void setup() {
   String cameraModel; 
@@ -357,20 +374,8 @@ void setup() {
     MDNS.addService("http", "tcp", 80);
     
     Serial.println("mDNS responder started");
-    // ROUTES
-    server.on("/capture", HTTP_GET, serverCapture);
-    server.on("/stream", HTTP_GET, serverStream);
-    server.on("/stream/stop", HTTP_GET, serverStopStream);
-    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
-    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
-    server.on("/fs/list", HTTP_GET, serverListFiles);
-    server.on("/fs/download", HTTP_GET, serverDownloadFile);
-    server.on("/fs/delete", HTTP_GET, serverDeleteFile);
-    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
-    server.on("/camera/settings", HTTP_GET, serverCameraParams);
-    server.on("/set", HTTP_GET, serverCameraSettings);
-    server.onNotFound(handleWebServerRoot);
-    server.begin();
+    // ROUTING
+    defineServerRouting();
     Serial.println(F("Server started"));
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
@@ -751,131 +756,6 @@ void serverCameraSettings() {
          myCAM.OV5642_set_Exposure_level(setValue.toInt());
      }
      server.send(200, "text/html", "<div id='m'>"+argument+" updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
-}
-
-void serverListFiles() {
-  String fileName = "/template.html";
-  webTemplate = "";
-  
-  if (SPIFFS.exists(fileName)) {
-    File file = SPIFFS.open(fileName, "r");
-    //server.streamFile(file, getContentType(fileName));
-    
-    while (file.available() != 0) {  
-      webTemplate += file.readStringUntil('\n');  
-    }
-    file.close();
-  } else {
-    Serial.println("Could not read "+fileName+" from SPIFFS");
-    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
-    return;
-  }
-  
-  String body = "<table class='table'>";
-  body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
-  
-  Dir dir = SPIFFS.openDir("/");
-  String fileUnit;
-  unsigned int fileSize;
-  char fileChar[32];
-  
-  while (dir.next()) {
-    String fileName = dir.fileName();
-    fileName.toCharArray(fileChar, 32);
-    if (!isServerListable(fileChar)) continue;
-    
-    if (dir.fileSize()<1024) {
-        fileUnit = " bytes";
-        fileSize = dir.fileSize();
-        } else {
-          fileUnit = " Kb";
-          fileSize = dir.fileSize()/1024;
-        }
-    fileName.remove(0,1);
-    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-    body += fileName+"</a></td>";
-    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-    body += "<td>";
-    if (isServerDeleteable(fileName)) {
-      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-    }
-    body += "</td>";
-    body += "</tr>";
-  }
-    
-  body += "</table>";
-
-  FSInfo fs_info;
-  SPIFFS.info(fs_info);
-  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
-  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
-  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
-
-  webTemplate.replace("{{localDomain}}", localDomain);
-  webTemplate.replace("{{home}}", "Camera UI");
-  webTemplate.replace("{{body}}", body);
-  
-  server.send(200, "text/html", webTemplate);
-}
-
-void serverDownloadFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      File download = SPIFFS.open("/"+filename, "r");
-      if (download) {
-        server.sendHeader("Content-Type", "text/text");
-        server.sendHeader("Content-Disposition", "attachment; filename="+filename);
-        server.sendHeader("Connection", "close");
-        server.streamFile(download, "application/octet-stream");
-        download.close();
-      } else {
-        server.send(404, "text/html", "file: "+ filename +" not found.");
-      }
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  } else {
-    server.send(404, "text/html", "No server parameters received.");
-  }
-}
-
-void serverDeleteFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      if(isServerDeleteable(filename)) {
-         SPIFFS.remove("/"+filename);
-      }
-      server.sendHeader("Location", "/fs/list", true);
-      server.send (302, "text/plain", "");
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  }
-}
-
-bool isServerDeleteable(String filename) {
-  if (filename == "config.json"
-    ||filename == "template.html"
-    ||filename == "ux.html")
-  {
-    return false;
-  } 
-  return true;
-}
-  
-bool isServerListable(char* filename) {
-  int8_t len = strlen(filename);
-  bool result;
-  if (  strstr(strlwr(filename + (len - 4)), ".jpg")
-     || strstr(strlwr(filename + (len - 5)), ".json")
-    ) {
-    result = true;
-  } else {
-    result = false;
-  }
-  return result;
 }
 
 // Button events
