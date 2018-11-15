@@ -115,6 +115,7 @@ void defineServerRouting() {
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
     server.on("/camera/settings", HTTP_GET, serverCameraParams);
     server.on("/set", HTTP_GET, serverCameraSettings);
+    server.on("/dynamicJavascript.js", HTTP_GET, serverDynamicJs); // Renders a one-line javascript
     server.onNotFound(handleWebServerRoot);
     server.begin();
 }
