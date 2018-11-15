@@ -1,4 +1,4 @@
-
+// Return whether a file has delete permission
 bool isServerDeleteable(String filename) {
   if (filename == "config.json"
     ||filename == "template.html"
@@ -8,7 +8,8 @@ bool isServerDeleteable(String filename) {
   } 
   return true;
 }
-  
+
+// Return whether a file should be listed
 bool isServerListable(char* filename) {
   int8_t len = strlen(filename);
   bool result;
@@ -22,7 +23,7 @@ bool isServerListable(char* filename) {
   return result;
 }
 
-
+// List files in SPIFFs (Note we use a {{moustache}} type template)
 void serverListFiles() {
   String fileName = "/template.html";
   webTemplate = "";
@@ -88,6 +89,7 @@ void serverListFiles() {
   server.send(200, "text/html", webTemplate);
 }
 
+// Send the download headers
 void serverDownloadFile() {
   if (server.args() > 0 ) { 
     if (server.hasArg("f")) {
@@ -110,6 +112,7 @@ void serverDownloadFile() {
   }
 }
 
+// Delete a file in SPIFFs
 void serverDeleteFile() {
   if (server.args() > 0 ) { 
     if (server.hasArg("f")) {
