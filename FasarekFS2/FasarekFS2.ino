@@ -122,6 +122,7 @@ void defineServerRouting() {
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
     server.on("/camera/settings", HTTP_GET, serverCameraParams);
     server.on("/set", HTTP_GET, serverCameraSettings);
+    server.on("/deepsleep", HTTP_GET, serverDeepSleep);
     server.on("/dynamicJavascript.js", HTTP_GET, serverDynamicJs); // Renders a one-line javascript
     server.onNotFound(handleWebServerRoot);
     server.begin();
@@ -768,7 +769,7 @@ void serverResetWifiSettings() {
 }
 
 void serverCameraParams() {
-    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
+    printMessage("Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
     memory.editSetup = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>Edit camera configuration using <b>Setup</b></div>"+ javascriptFadeMessage);
@@ -786,6 +787,23 @@ void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
+}
+
+void serverDeepSleep() {
+  printMessage("Deep sleep");
+  esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+
+  server.send(200, "text/html", "<div id='m'><h5>Entering deep sleep, server will not respond until restart</div>");
+  delay(1000);
+    // Send Oled to sleep
+  u8x8_cad_StartTransfer(u8g2.getU8x8());
+  u8x8_cad_SendCmd( u8g2.getU8x8(), 0x8d);
+  u8x8_cad_SendArg( u8g2.getU8x8(), 0x10);
+  u8x8_cad_EndTransfer(u8g2.getU8x8());
+  esp_deep_sleep_start();
 }
 
 void loop() {
