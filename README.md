@@ -57,7 +57,9 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
    LAZY to bring together all this?
    Just ask and I will post somewhere a download link with the compiled binary file!
 
-### config.json
+### SPIFFs and config.json
+
+Please make the most bigger SPI Flash File System you can for your board, for example in Wemos D1 is 3 Mb, and upload the /data folder of the sketch. In the SPIFFs we save the JPG files at the same time we send it to the WiFi Client in a "best try" approach and we also save the configuration parameters handled by WiFi Manager in a file called **config.json** 
 
     {
      "timelapse":    30,
@@ -68,13 +70,27 @@ To compile this on Arduino and upload it to your ESP8266 board you will need the
     
     on develop branch there is a new property called jpeg_size 
 
-**timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 2 seconds)
+This is a managed File, that you can edit in the WiFi configuration and will be overwritten when the connection is successful. It stores the following properties:
 
-**upload_host** / path   the host and path to your upload script ( testweb.com/upload.php?f=2018 )
+**timelapse**  Seconds in timelapse mode till next picture (Enabled doing a long Shutter click of at least 3 seconds or via cam.local user interface)
+
+**upload_host** the host to your upload script
+
+**upload_path** the path to your upload script. Both together form the URL to push the image: http:// testweb.com/upload.php?f=2018
 
 **slave_cam_ip**  BETA This is GET ping that is made to another IP or host with a fixed path: /capture on the moment of taking a picture. For ex. can be used to trigger IP the capture route of another camera, taking two pictures at the same time when you shoot one of the cameras triggering the other as a 'slave camera'. UPDATING this slightly it could be used to ping any script to trigger an action when taking a photo, like sending an email or giving a signal to another IoT device.
 
 NOTE: The new config is saved as a file in SPIFFS only if the new connection is succesfull ! Take out the boxing gloves before typing your Wifi password ;)
+
+### Pre-compiled bynaries
+
+We are going to maintain only pre-compiled bynaries for a handful of Boards that we currently use. In the develop branch you can find:
+
+   - Wemos D1 R2, OV5642 5MP Arducam 
+   - NodeMCU ESP-12, OV5642 5MP Arducam 
+   
+Please refer to the Compiled folder in the develop branch of this repository:
+https://github.com/martinberlin/FS2/tree/develop/Compiled
 
 ### Latest experimental features are on develop branch
 Please pull develop to help us testing new features.
@@ -118,7 +134,6 @@ This are only some of the next goals. But is your camera, your software, so make
 [3D-Print the FS2 Camera](https://www.thingiverse.com/thing:3135141) 
 
 [Fasani](https://fasani.de) Lead programmer of this project
-
 
 
 ## License

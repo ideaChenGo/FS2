@@ -22,7 +22,9 @@
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include "FS2_functions.h"; // Helper functions
-
+// If you want to add a display, make sure to get the Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
+//#include <U8g2lib.h>        // OLED display
+//U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
@@ -49,6 +51,8 @@ Button2 buttonShutter = Button2(D3);
 const int ledStatus = D4;
 const int ledStatusTimelapse = D8;
 
+// We use WiFi Manager to setup connections and camera settings
+WiFiManager wm;
 WiFiClient client;
 
 // Makes a div id="m" containing response message to dissapear after 6 seconds
@@ -67,7 +71,6 @@ String end_request = "\n--"+boundary+"--\n";
 uint8_t temp = 0, temp_last = 0;
 int i = 0;
 bool is_header = false;
-bool resetWifiSettings;
 
 ESP8266WebServer server(80);
 
@@ -92,9 +95,37 @@ struct config_t
 {
     byte photoCount = 1;
     bool resetWifiSettings;
+    bool editSetup;
 } memory;
 
+byte u8cursor = 1;
+byte u8newline = 5;
 
+/**
+ * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
+ */
+void printMessage(String message, bool newline = true, bool displayClear = false) {
+  //u8g2.setDrawColor(1);
+  if (displayClear) {
+    // Clear buffer and reset cursor to first line
+    // u8g2.clearBuffer();
+    u8cursor = u8newline;
+  }
+  if (newline) {
+    //u8cursor = u8cursor+u8newline;
+    Serial.println(message);
+  } else {
+    Serial.print(message);
+  }
+  //u8g2.setCursor(0, u8cursor);
+  //u8g2.print(message);
+  //u8g2.sendBuffer();
+  u8cursor = u8cursor+u8newline;
+  if (u8cursor > 60) {
+    u8cursor = u8newline;
+  }
+  return;
+}
 
 void setup() {
   String cameraModel; 
@@ -154,7 +185,7 @@ void setup() {
 //end read
 
   // Todo: Add "param" ?
-  std::vector<const char *> menu = {"wifi", "sep", "info"};
+  std::vector<const char *> menu = {"wifi", "sep", "param", "info"};
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -168,7 +199,6 @@ void setup() {
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
-  WiFiManager wm;
   // This is triggered on next restart after click in RESET WIFI AND EDIT CONFIGURATION
   if (memory.resetWifiSettings) {
     wm.resetSettings();
@@ -182,11 +212,20 @@ void setup() {
   wm.addParameter(&param_jpeg_size);
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
+  wm.setSaveParamsCallback(saveParamCallback);
   wm.setBreakAfterConfig(true); // Without this saveConfigCallback does not get fired
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setAPCallback(configModeCallback);
   wm.setDebugOutput(false);
-  wm.autoConnect(configModeAP);
+    // If saveParamCallback is called then on next restart trigger config portal to update camera params
+  if (memory.editSetup) {
+    // Let's do this just one time: Restarting again should connect to previous WiFi
+    memory.editSetup = false;
+    EEPROM_writeAnything(0, memory);
+    wm.startConfigPortal(configModeAP);
+  } else {
+    wm.autoConnect(configModeAP);
+  }
  } else {
   Serial.println(">>>>>>>>>OFFLINE Mode");
  }
@@ -346,13 +385,15 @@ void setup() {
     // ROUTES
     server.on("/capture", HTTP_GET, serverCapture);
     server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
     server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
     server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
     server.on("/fs/list", HTTP_GET, serverListFiles);
     server.on("/fs/download", HTTP_GET, serverDownloadFile);
     server.on("/fs/delete", HTTP_GET, serverDeleteFile);
     server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
-    
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
     server.onNotFound(handleWebServerRoot);
     server.begin();
     Serial.println(F("Server started"));
@@ -484,7 +525,13 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
-  
+  // Set back the selected resolution
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+  }
+
   isStreaming = false;
   start_capture();
   Serial.println(F("CAM Capturing"));
@@ -520,14 +567,26 @@ void serverCapture() {
 
 
 void serverStream() {
+    printMessage("STREAMING");
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(2);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(1);
+}
   isStreaming = true;
   WiFiClient client = server.client();
 
   String response = "HTTP/1.1 200 OK\r\n";
   response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   server.sendContent(response);
-
+  int counter = 0;
   while (isStreaming) {
+    counter++;
+    // Use a handleClient only 1 every 99 times
+    if (counter % 99 == 0) {
+       server.handleClient();
+       Serial.print(String(counter)+" % 99 Matched");
+    }
     start_capture();
     while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
     size_t len = myCAM.read_fifo_length();
@@ -630,6 +689,13 @@ void saveConfigCallback() {
  
 }
 
+void saveParamCallback(){
+  shouldSaveConfig = true;
+  delay(100);
+  wm.stopConfigPortal();
+  Serial.println("[CALLBACK] saveParamCallback fired -> should save config is TRUE");
+}
+
 void shutterPing() {
   // Attempt to read settings.slave_cam_ip and ping a second camera
   WiFiClient client;
@@ -669,6 +735,11 @@ void serverStopTimelapse() {
     server.send(200, "text/html", "<div id='m'>Stop Timelapse</div>"+ javascriptFadeMessage);
 }
 
+void serverStopStream() {
+    printMessage("STREAM stopped", true, true);
+    server.send(200, "text/html", "<div id='m'>Streaming stoped</div>"+ javascriptFadeMessage);
+}
+
 void serverResetWifiSettings() {
     Serial.println("resetWifiSettings flag is saved on EEPROM");
     memory.resetWifiSettings = true;
@@ -677,6 +748,36 @@ void serverResetWifiSettings() {
     server.send(200, "text/html", "<div id='m'><h5>Restarting...</h5>WiFi credentials will be deleted and camera will start in configuration mode.</div>"+ javascriptFadeMessage);
     delay(500);
     ESP.restart();
+}
+
+void serverCameraParams() {
+    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
+    memory.editSetup = true;
+    EEPROM_writeAnything(0, memory);
+    server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);
+    delay(500);
+    ESP.restart();
+}
+
+/**
+ * Update camera settings (Effects / Exposure only on OV5642)
+ */
+void serverCameraSettings() {
+     String argument  = server.argName(0);
+     String setValue = server.arg(0);
+     if (argument == "effect") {
+       if (cameraModelId == 5) {
+         myCAM.OV2640_set_Special_effects(setValue.toInt());
+       }
+       if (cameraModelId == 3) {
+         Serial.print(setValue);Serial.print(" in OV5642 this still does not work: https://github.com/ArduCAM/Arduino/issues/377");
+         myCAM.OV5642_set_Special_effects(setValue.toInt());
+       }
+     }
+     if (argument == "exposure" && cameraModelId == 3) {
+         myCAM.OV5642_set_Exposure_level(setValue.toInt());
+     }
+     server.send(200, "text/html", "<div id='m'>"+argument+" updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
 }
 
 void serverListFiles() {
