@@ -312,6 +312,8 @@ void setup() {
     Serial.println(F("Can't find OV2640 module!"));
   } else {
     Serial.println(F("ArduCAM model OV2640 detected."));
+    printMessage("CAMERA READY", true, true);
+    printMessage(IpAddress2String(WiFi.localIP()));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -349,6 +351,8 @@ void setup() {
      Serial.println("Can't find OV5642 module!");
    } else {
      Serial.println("ArduCAM model OV5642 detected.");
+     printMessage("CAMERA READY", true, true);
+     printMessage(IpAddress2String(WiFi.localIP()));
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
