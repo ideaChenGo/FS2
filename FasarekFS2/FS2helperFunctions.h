@@ -67,12 +67,13 @@ void start_capture() {
 }
 
 void serverStream() {
-    printMessage("STREAMING");
+  printMessage("STREAMING");
+  // Set JPEG_size smaller to allow faster framerate
   if (cameraModelId == 5) {
     myCAM.OV2640_set_JPEG_size(2);
   } else if (cameraModelId == 3) {
     myCAM.OV5642_set_JPEG_size(1);
-}
+  }
   isStreaming = true;
   WiFiClient client = server.client();
 
@@ -88,7 +89,9 @@ void serverStream() {
        Serial.print(String(counter)+" % 99 Matched");
     }
     start_capture();
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
+    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK)) {
+      delay(0);
+    }
     size_t len = myCAM.read_fifo_length();
 
     if (len == 0 ) //0 kb
@@ -148,6 +151,7 @@ void serverStream() {
         buffer[i++] = temp_last;
         buffer[i++] = temp;
       }
+      delay(0);
     }
     if (!client.connected()) {
       client.stop(); is_header = false; break;

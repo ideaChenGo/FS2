@@ -413,6 +413,7 @@ String camCapture(ArduCAM myCAM) {
     if (onlineMode) {
       while(client.available()) {
         String line = client.readStringUntil('\r');
+        delay(0);
        }  // Empty wifi receive bufffer
     }
   start_request = start_request + 
@@ -451,6 +452,7 @@ String camCapture(ArduCAM myCAM) {
         fsFile.write(&buffer[0], will_copy);
       }
       len -= will_copy;
+      delay(0);
   }
 
   if (fsFile && saveInSpiffs) {
@@ -475,6 +477,7 @@ String camCapture(ArduCAM myCAM) {
       client.stop();
       return "Timeout of 5 seconds reached";
     }
+    delay(0);
   }
   while(client.available()) {
     rx_line = client.readStringUntil('\r');
@@ -486,6 +489,7 @@ String camCapture(ArduCAM myCAM) {
      if (!skip_headers) {
             response += rx_line;
      }
+     delay(0);
   }
   response.trim();
   Serial.println( " RESPONSE after headers: " );
@@ -601,6 +605,7 @@ void shutterPing() {
       client.stop();
       return;
     }
+    delay(0);
   }
 }
 
@@ -635,7 +640,9 @@ void serverResetWifiSettings() {
 }
 
 void serverCameraParams() {
-    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
+    printMessage("Restarting...", true, true);
+    printMessage("Connect "+String(configModeAP));
+    printMessage("Use SETUP");
     memory.editSetup = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);

@@ -33,7 +33,8 @@ void serverListFiles() {
     //server.streamFile(file, getContentType(fileName));
     
     while (file.available() != 0) {  
-      webTemplate += file.readStringUntil('\n');  
+      webTemplate += file.readStringUntil('\n');
+      delay(0); 
     }
     file.close();
   } else {
@@ -72,6 +73,7 @@ void serverListFiles() {
     }
     body += "</td>";
     body += "</tr>";
+    delay(0);
   }
     
   body += "</table>";
