@@ -1,15 +1,14 @@
 // Extended from ArduCAM Mini demo (C)2017 Lee      (Espressif 8266 to Wemos made by Lee)
 // Project Website:  https://fasarek.de             ArduCAM Web:   http://www.ArduCAM.com
 //  ______ _____ ___                                https://github.com/martinberlin/FS2 
-// |  ____/ ____|__ \ 
+// |  ____/ ____|__ \
 // | |__ | (___    ) |
 // |  __| \___ \  / / 
 // | |    ____) |/ /_ 
 // |_|   |_____/|____|     WiFi instant Camera
                    
-
-// This program requires the ArduCAM V4.0.0 (or later) library and ArduCAM ESP8266 2MP/5MP camera
-#include <FS.h> // This needs to be first since it's SPIFFS where we save the camera config.json
+// This program requires the ArduCAM V4.0.0 (or later) library and an SPI 2MP or 5MP camera
+#include <FS.h> // In SPIFFS we save the camera config.json
 #include <EEPROM.h>
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
@@ -21,14 +20,14 @@
 #include <SPI.h>
 #include "Button2.h";
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
-#include "FS2_functions.h"; // Helper functions
+
 // If you want to add a display, make sure to get the Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 //#include <U8g2lib.h>        // OLED display
 //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
 byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
-bool saveInSpiffs = true;                      // Whether to save the jpg also in SPIFFS
+bool saveInSpiffs = false;                      // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 16;                                 // set GPIO16 as the slave select
@@ -80,12 +79,13 @@ ArduCAM myCAM(cameraModelId, CS);
 // jpeg_size_id Setting to set the camara Width/Height resolution. Smallest is default if no string match is done by config
 uint8_t jpeg_size_id = 1;
 
-// Definition for WiFi defaults
-char timelapse[4] = "60";
-char upload_host[120] = "api.slosarek.eu";
-char upload_path[240] = "/your/upload.php";
-char slave_cam_ip[16] = "";
-char jpeg_size[10]  = "1600x1200";
+// Definition for WiFi defaults (Note that length[4] should be always +1)
+char timelapse[4]         = "60";
+char upload_host[120]     = "api.slosarek.eu";
+char upload_path[240]     = "/your/upload.php";
+char slave_cam_ip[16]     = "";
+char jpeg_size[10]        = "1600x1200";
+char ms_before_capture[5] = "500";
 
 // SPIFFS and memory to save photos
 File fsFile;
@@ -101,30 +101,24 @@ struct config_t
 byte u8cursor = 1;
 byte u8newline = 5;
 
-/**
- * Generic message printer. Modify this if you want to send this messages elsewhere (Display)
- */
-void printMessage(String message, bool newline = true, bool displayClear = false) {
-  //u8g2.setDrawColor(1);
-  if (displayClear) {
-    // Clear buffer and reset cursor to first line
-    // u8g2.clearBuffer();
-    u8cursor = u8newline;
-  }
-  if (newline) {
-    //u8cursor = u8cursor+u8newline;
-    Serial.println(message);
-  } else {
-    Serial.print(message);
-  }
-  //u8g2.setCursor(0, u8cursor);
-  //u8g2.print(message);
-  //u8g2.sendBuffer();
-  u8cursor = u8cursor+u8newline;
-  if (u8cursor > 60) {
-    u8cursor = u8newline;
-  }
-  return;
+#include "FS2helperFunctions.h"; // Helper methods: printMessage + EPROM
+#include "serverFileManager.h";  // Responds to the FS Routes
+// ROUTING Definitions
+void defineServerRouting() {
+    server.on("/capture", HTTP_GET, serverCapture);
+    server.on("/stream", HTTP_GET, serverStream);
+    server.on("/stream/stop", HTTP_GET, serverStopStream);
+    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
+    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
+    server.on("/fs/list", HTTP_GET, serverListFiles);           // FS
+    server.on("/fs/download", HTTP_GET, serverDownloadFile);    // FS
+    server.on("/fs/delete", HTTP_GET, serverDeleteFile);        // FS
+    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
+    server.on("/camera/settings", HTTP_GET, serverCameraParams);
+    server.on("/set", HTTP_GET, serverCameraSettings);
+    server.on("/dynamicJavascript.js", HTTP_GET, serverDynamicJs); // Renders a one-line javascript
+    server.onNotFound(handleWebServerRoot);
+    server.begin();
 }
 
 void setup() {
@@ -147,7 +141,6 @@ void setup() {
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  // Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -172,7 +165,7 @@ void setup() {
           strcpy(upload_path, json["upload_path"]);
           strcpy(slave_cam_ip, json["slave_cam_ip"]);
           strcpy(jpeg_size, json["jpeg_size"]);
-
+          strcpy(ms_before_capture, json["ms_before_capture"]);
         } else {
           Serial.println("Failed to load json config");
         }
@@ -185,17 +178,18 @@ void setup() {
 //end read
 
   // Todo: Add "param" ?
-  std::vector<const char *> menu = {"wifi", "sep", "param", "info"};
+  std::vector<const char *> menu = {"wifi", "sep", "param", "info", "update"};
+  wm.setMenu(menu);
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
-  WiFiManagerParameter param_timelapse("timelapse", "Timelapse in secs", timelapse,4);
+  WiFiManagerParameter param_timelapse("timelapse", "Timelapse in secs", timelapse, 4, "type=\"number\" title=\"Takes a picture every N seconds\"");
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
-  // Variable depending on the camera model
+  WiFiManagerParameter param_ms_before_capture("ms_before_capture", "Millis wait after shoot", ms_before_capture, 4, "type=\"number\" title=\"Miliseconds between shutter press and start capturing\"");
   WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
- 
+
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
@@ -203,13 +197,18 @@ void setup() {
   if (memory.resetWifiSettings) {
     wm.resetSettings();
   }
-  wm.setMenu(menu);
+  
   // Add the defined parameters to wm
   wm.addParameter(&param_timelapse);
   wm.addParameter(&param_slave_cam_ip);
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
   wm.addParameter(&param_jpeg_size);
+  // Adding this makes
+  // *WM: [3] Updated _max_params: 10  // *WM: [3] re-allocating params bytes: 40  -> and jpeg_size is not saved (Now it is could not reproduce again)
+  wm.addParameter(&param_ms_before_capture);
+
+  
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
   wm.setSaveParamsCallback(saveParamCallback);
@@ -236,7 +235,7 @@ void setup() {
   strcpy(upload_host, param_upload_host.getValue());
   strcpy(upload_path, param_upload_path.getValue());
   strcpy(jpeg_size, param_jpeg_size.getValue());
-
+  strcpy(ms_before_capture, param_ms_before_capture.getValue());
   if (shouldSaveConfig) {
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
@@ -247,11 +246,13 @@ void setup() {
     json["upload_host"] = upload_host;
     json["upload_path"] = upload_path;
     json["jpeg_size"] = jpeg_size;
+    json["ms_before_capture"] = ms_before_capture;
     Serial.println("timelapse:"+String(timelapse));
     Serial.println("slave_cam_ip:"+String(slave_cam_ip));
     Serial.println("upload_host:"+String(upload_host));
     Serial.println("upload_path:"+String(upload_path));
     Serial.println("jpeg_size:"+String(jpeg_size));
+    Serial.println("ms_before_capture:"+String(ms_before_capture));
     
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -319,6 +320,8 @@ void setup() {
     Serial.println(F("Can't find OV2640 module!"));
   } else {
     Serial.println(F("ArduCAM model OV2640 detected."));
+    printMessage("CAMERA READY", true, true);
+    printMessage(IpAddress2String(WiFi.localIP()));
     myCAM.set_format(JPEG);
     myCAM.InitCAM();
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
@@ -345,8 +348,8 @@ void setup() {
       jpeg_size_id = 6;
     }
     
-    temp=SPI.transfer(0x00);
-    myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
+    temp = SPI.transfer(0x00);
+    //myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
     //Check if the camera module type is OV5642
     myCAM.wrSensorReg16_8(0xff, 0x01);
     myCAM.rdSensorReg16_8(12298, &vid);
@@ -356,6 +359,8 @@ void setup() {
      Serial.println("Can't find OV5642 module!");
    } else {
      Serial.println("ArduCAM model OV5642 detected.");
+     printMessage("CAMERA READY", true, true);
+     printMessage(IpAddress2String(WiFi.localIP()));
      myCAM.set_format(JPEG);
      myCAM.InitCAM();
      // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
@@ -382,31 +387,14 @@ void setup() {
     MDNS.addService("http", "tcp", 80);
     
     Serial.println("mDNS responder started");
-    // ROUTES
-    server.on("/capture", HTTP_GET, serverCapture);
-    server.on("/stream", HTTP_GET, serverStream);
-    server.on("/stream/stop", HTTP_GET, serverStopStream);
-    server.on("/timelapse/start", HTTP_GET, serverStartTimelapse);
-    server.on("/timelapse/stop", HTTP_GET, serverStopTimelapse);
-    server.on("/fs/list", HTTP_GET, serverListFiles);
-    server.on("/fs/download", HTTP_GET, serverDownloadFile);
-    server.on("/fs/delete", HTTP_GET, serverDeleteFile);
-    server.on("/wifi/reset", HTTP_GET, serverResetWifiSettings);
-    server.on("/camera/settings", HTTP_GET, serverCameraParams);
-    server.on("/set", HTTP_GET, serverCameraSettings);
-    server.onNotFound(handleWebServerRoot);
-    server.begin();
+    // ROUTING
+    defineServerRouting();
     Serial.println(F("Server started"));
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
   }
 
-void start_capture() {
-  myCAM.clear_fifo_flag();
-  myCAM.start_capture();
-}
-
-
+// Original example from ArduCam with added SPIFFs save (Credits: Lee)
 String camCapture(ArduCAM myCAM) {
     // Check if available bytes in SPIFFS
   FSInfo fs_info;
@@ -437,6 +425,7 @@ String camCapture(ArduCAM myCAM) {
     if (onlineMode) {
       while(client.available()) {
         String line = client.readStringUntil('\r');
+        delay(0);
        }  // Empty wifi receive bufffer
     }
   start_request = start_request + 
@@ -475,6 +464,7 @@ String camCapture(ArduCAM myCAM) {
         fsFile.write(&buffer[0], will_copy);
       }
       len -= will_copy;
+      delay(0);
   }
 
   if (fsFile && saveInSpiffs) {
@@ -499,6 +489,7 @@ String camCapture(ArduCAM myCAM) {
       client.stop();
       return "Timeout of 5 seconds reached";
     }
+    delay(0);
   }
   while(client.available()) {
     rx_line = client.readStringUntil('\r');
@@ -510,6 +501,7 @@ String camCapture(ArduCAM myCAM) {
      if (!skip_headers) {
             response += rx_line;
      }
+     delay(0);
   }
   response.trim();
   Serial.println( " RESPONSE after headers: " );
@@ -524,6 +516,8 @@ String camCapture(ArduCAM myCAM) {
 
 
 void serverCapture() {
+  // Delay to avoid a blurred photo if the users configures ms_before_capture
+  delay(atoi(ms_before_capture));
   digitalWrite(ledStatus, HIGH);
   // Set back the selected resolution
   if (cameraModelId == 5) {
@@ -560,96 +554,6 @@ void serverCapture() {
   if (onlineMode) {
     server.send(200, "text/html", "<div id='m'><small>"+imageUrl+
               "</small><br><img src='"+imageUrl+"' width='400'></div>"+ javascriptFadeMessage);
-  }
-}
-
-
-void serverStream() {
-    printMessage("STREAMING");
-  if (cameraModelId == 5) {
-    myCAM.OV2640_set_JPEG_size(2);
-  } else if (cameraModelId == 3) {
-    myCAM.OV5642_set_JPEG_size(1);
-}
-  isStreaming = true;
-  WiFiClient client = server.client();
-
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-  server.sendContent(response);
-  int counter = 0;
-  while (isStreaming) {
-    counter++;
-    // Use a handleClient only 1 every 99 times
-    if (counter % 99 == 0) {
-       server.handleClient();
-       Serial.print(String(counter)+" % 99 Matched");
-    }
-    start_capture();
-    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
-    size_t len = myCAM.read_fifo_length();
-
-    if (len == 0 ) //0 kb
-    {
-      Serial.println(F("Size is 0."));
-      continue;
-    }
-    myCAM.CS_LOW();
-    myCAM.set_fifo_burst();
-    if (!client.connected()) {
-      client.stop(); is_header = false; break;
-    }
-    response = "--frame\r\n";
-    response += "Content-Type: image/jpeg\r\n\r\n";
-    server.sendContent(response);
-    
-    while ( len-- )
-    {
-      temp_last = temp;
-      temp =  SPI.transfer(0x00);
-
-      //Read JPEG data from FIFO
-      if ( (temp == 0xD9) && (temp_last == 0xFF) ) //If find the end ,break while,
-      {
-        buffer[i++] = temp;  //save the last  0XD9
-        //Write the remain bytes in the buffer
-        myCAM.CS_HIGH();;
-        if (!client.connected()) {
-          client.stop(); is_header = false; break;
-        }
-        client.write(&buffer[0], i);
-        is_header = false;
-        i = 0;
-      }
-      if (is_header == true)
-      {
-        //Write image data to buffer if not full
-        if (i < bufferSize)
-          buffer[i++] = temp;
-        else
-        {
-          //Write bufferSize bytes image data to file
-          myCAM.CS_HIGH();
-          if (!client.connected()) {
-            client.stop(); is_header = false; break;
-          }
-          client.write(&buffer[0], bufferSize);
-          i = 0;
-          buffer[i++] = temp;
-          myCAM.CS_LOW();
-          myCAM.set_fifo_burst();
-        }
-      }
-      else if ((temp == 0xD8) & (temp_last == 0xFF))
-      {
-        is_header = true;
-        buffer[i++] = temp_last;
-        buffer[i++] = temp;
-      }
-    }
-    if (!client.connected()) {
-      client.stop(); is_header = false; break;
-    }
   }
 }
 
@@ -715,6 +619,7 @@ void shutterPing() {
       client.stop();
       return;
     }
+    delay(0);
   }
 }
 
@@ -749,7 +654,9 @@ void serverResetWifiSettings() {
 }
 
 void serverCameraParams() {
-    printMessage("> Restarting. Connect to "+String(configModeAP)+" and click SETUP to update camera configuration");
+    printMessage("Restarting...", true, true);
+    printMessage("Connect "+String(configModeAP));
+    printMessage("Use SETUP");
     memory.editSetup = true;
     EEPROM_writeAnything(0, memory);
     server.send(200, "text/html", "<div id='m'><h5>Restarting please connect to "+String(configModeAP)+"</h5>And browse http://192.168.4.1 to edit camera configuration using <b>Setup</b> option</div>"+ javascriptFadeMessage);
@@ -778,131 +685,6 @@ void serverCameraSettings() {
      server.send(200, "text/html", "<div id='m'>"+argument+" updated to value "+setValue+"<br>See it on effect on next photo</div>"+ javascriptFadeMessage);
 }
 
-void serverListFiles() {
-  String fileName = "/template.html";
-  webTemplate = "";
-  
-  if (SPIFFS.exists(fileName)) {
-    File file = SPIFFS.open(fileName, "r");
-    //server.streamFile(file, getContentType(fileName));
-    
-    while (file.available() != 0) {  
-      webTemplate += file.readStringUntil('\n');  
-    }
-    file.close();
-  } else {
-    Serial.println("Could not read "+fileName+" from SPIFFS");
-    server.send(200, "text/html", "Could not read "+fileName+" from SPIFFS");
-    return;
-  }
-  
-  String body = "<table class='table'>";
-  body += "<tr><th>File</th><th>Size</th><th>Del</th></tr>";
-  
-  Dir dir = SPIFFS.openDir("/");
-  String fileUnit;
-  unsigned int fileSize;
-  char fileChar[32];
-  
-  while (dir.next()) {
-    String fileName = dir.fileName();
-    fileName.toCharArray(fileChar, 32);
-    if (!isServerListable(fileChar)) continue;
-    
-    if (dir.fileSize()<1024) {
-        fileUnit = " bytes";
-        fileSize = dir.fileSize();
-        } else {
-          fileUnit = " Kb";
-          fileSize = dir.fileSize()/1024;
-        }
-    fileName.remove(0,1);
-    body += "<tr><td><a href='/fs/download?f="+fileName+"'>";
-    body += fileName+"</a></td>";
-    body += "<td>"+ String(fileSize)+fileUnit +"</td>";
-    body += "<td>";
-    if (isServerDeleteable(fileName)) {
-      body += "<a class='btn-sm btn-danger' href='/fs/delete?f="+fileName+"'>x</a>";
-    }
-    body += "</td>";
-    body += "</tr>";
-  }
-    
-  body += "</table>";
-
-  FSInfo fs_info;
-  SPIFFS.info(fs_info);
-  body += "<br>Total KB: "+String(fs_info.totalBytes/1024)+" Kb";
-  body += "<br>Used KB: "+String(fs_info.usedBytes/1024)+" Kb";
-  body += "<br>Avail KB: <b>"+String((fs_info.totalBytes-fs_info.usedBytes)/1024)+" Kb</b><br>";
-
-  webTemplate.replace("{{localDomain}}", localDomain);
-  webTemplate.replace("{{home}}", "Camera UI");
-  webTemplate.replace("{{body}}", body);
-  
-  server.send(200, "text/html", webTemplate);
-}
-
-void serverDownloadFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      File download = SPIFFS.open("/"+filename, "r");
-      if (download) {
-        server.sendHeader("Content-Type", "text/text");
-        server.sendHeader("Content-Disposition", "attachment; filename="+filename);
-        server.sendHeader("Connection", "close");
-        server.streamFile(download, "application/octet-stream");
-        download.close();
-      } else {
-        server.send(404, "text/html", "file: "+ filename +" not found.");
-      }
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  } else {
-    server.send(404, "text/html", "No server parameters received.");
-  }
-}
-
-void serverDeleteFile() {
-  if (server.args() > 0 ) { 
-    if (server.hasArg("f")) {
-      String filename = server.arg(0);
-      if(isServerDeleteable(filename)) {
-         SPIFFS.remove("/"+filename);
-      }
-      server.sendHeader("Location", "/fs/list", true);
-      server.send (302, "text/plain", "");
-    } else {
-      server.send(404, "text/html", "f parameter not received by GET.");
-    }
-  }
-}
-
-bool isServerDeleteable(String filename) {
-  if (filename == "config.json"
-    ||filename == "template.html"
-    ||filename == "ux.html")
-  {
-    return false;
-  } 
-  return true;
-}
-  
-bool isServerListable(char* filename) {
-  int8_t len = strlen(filename);
-  bool result;
-  if (  strstr(strlwr(filename + (len - 4)), ".jpg")
-     || strstr(strlwr(filename + (len - 5)), ".json")
-    ) {
-    result = true;
-  } else {
-    result = false;
-  }
-  return result;
-}
-
 // Button events
 void shutterReleased(Button2& btn) {
     digitalWrite(ledStatusTimelapse, LOW);
@@ -910,6 +692,7 @@ void shutterReleased(Button2& btn) {
     captureTimeLapse = false;
     serverCapture();
 }
+
 void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
     Serial.println("long click: Enable timelapse");
