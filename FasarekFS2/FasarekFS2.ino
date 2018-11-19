@@ -80,11 +80,12 @@ ArduCAM myCAM(cameraModelId, CS);
 uint8_t jpeg_size_id = 1;
 
 // Definition for WiFi defaults
-char timelapse[4] = "60";
-char upload_host[120] = "api.slosarek.eu";
-char upload_path[240] = "/your/upload.php";
-char slave_cam_ip[16] = "";
-char jpeg_size[10]  = "1600x1200";
+char timelapse[4]         = "60";
+char upload_host[120]     = "api.slosarek.eu";
+char upload_path[240]     = "/your/upload.php";
+char slave_cam_ip[16]     = "";
+char jpeg_size[10]        = "1600x1200";
+char ms_before_capture[4] = "500";
 
 // SPIFFS and memory to save photos
 File fsFile;
@@ -165,7 +166,7 @@ void setup() {
           strcpy(upload_path, json["upload_path"]);
           strcpy(slave_cam_ip, json["slave_cam_ip"]);
           strcpy(jpeg_size, json["jpeg_size"]);
-
+          strcpy(ms_before_capture, json["ms_before_capture"]);
         } else {
           Serial.println("Failed to load json config");
         }
@@ -189,7 +190,7 @@ void setup() {
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
   // Variable depending on the camera model
   WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
- 
+  WiFiManagerParameter param_ms_before_capture("ms_before_capture", "Millis wait after shoot", ms_before_capture, 4);
  if (onlineMode) {
   Serial.println(">>>>>>>>>ONLINE Mode");
 
@@ -204,6 +205,7 @@ void setup() {
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
   wm.addParameter(&param_jpeg_size);
+  wm.addParameter(&param_ms_before_capture);
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
   wm.setSaveParamsCallback(saveParamCallback);
@@ -230,7 +232,7 @@ void setup() {
   strcpy(upload_host, param_upload_host.getValue());
   strcpy(upload_path, param_upload_path.getValue());
   strcpy(jpeg_size, param_jpeg_size.getValue());
-
+  strcpy(ms_before_capture, param_ms_before_capture.getValue());
   if (shouldSaveConfig) {
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
@@ -241,11 +243,13 @@ void setup() {
     json["upload_host"] = upload_host;
     json["upload_path"] = upload_path;
     json["jpeg_size"] = jpeg_size;
+    json["ms_before_capture"] = ms_before_capture;
     Serial.println("timelapse:"+String(timelapse));
     Serial.println("slave_cam_ip:"+String(slave_cam_ip));
     Serial.println("upload_host:"+String(upload_host));
     Serial.println("upload_path:"+String(upload_path));
     Serial.println("jpeg_size:"+String(jpeg_size));
+    Serial.println("ms_before_capture:"+String(ms_before_capture));
     
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -509,6 +513,8 @@ String camCapture(ArduCAM myCAM) {
 
 
 void serverCapture() {
+  // Delay to avoid a blurred photo if the users configures ms_before_capture
+  delay(atoi(ms_before_capture));
   digitalWrite(ledStatus, HIGH);
   // Set back the selected resolution
   if (cameraModelId == 5) {
@@ -683,6 +689,7 @@ void shutterReleased(Button2& btn) {
     captureTimeLapse = false;
     serverCapture();
 }
+
 void shutterLongClick(Button2& btn) {
     digitalWrite(ledStatusTimelapse, HIGH);
     Serial.println("long click: Enable timelapse");
