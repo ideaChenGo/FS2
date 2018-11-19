@@ -1,7 +1,7 @@
 // Extended from ArduCAM Mini demo (C)2017 Lee      (Espressif 8266 to Wemos made by Lee)
 // Project Website:  https://fasarek.de             ArduCAM Web:   http://www.ArduCAM.com
 //  ______ _____ ___                                https://github.com/martinberlin/FS2 
-// |  ____/ ____|__ \ 
+// |  ____/ ____|__ \
 // | |__ | (___    ) |
 // |  __| \___ \  / / 
 // | |    ____) |/ /_ 
@@ -178,7 +178,8 @@ void setup() {
 //end read
 
   // Todo: Add "param" ?
-  std::vector<const char *> menu = {"wifi", "sep", "param", "info"};
+  std::vector<const char *> menu = {"wifi", "sep", "param", "info", "update"};
+  wm.setMenu(menu);
   // The extra parameters to be configured (can be either global or just in the setup)
   // After connecting, parameter.getValue() will get you the configured value
   // id/name placeholder/prompt default length
@@ -196,7 +197,7 @@ void setup() {
   if (memory.resetWifiSettings) {
     wm.resetSettings();
   }
-  wm.setMenu(menu);
+  
   // Add the defined parameters to wm
   wm.addParameter(&param_timelapse);
   wm.addParameter(&param_slave_cam_ip);
@@ -340,8 +341,8 @@ void setup() {
       jpeg_size_id = 6;
     }
     
-    temp=SPI.transfer(0x00);
-    myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
+    temp = SPI.transfer(0x00);
+    //myCAM.clear_bit(6, GPIO_PWDN_MASK); //disable low power
     //Check if the camera module type is OV5642
     myCAM.wrSensorReg16_8(0xff, 0x01);
     myCAM.rdSensorReg16_8(12298, &vid);
