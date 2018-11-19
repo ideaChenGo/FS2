@@ -79,13 +79,13 @@ ArduCAM myCAM(cameraModelId, CS);
 // jpeg_size_id Setting to set the camara Width/Height resolution. Smallest is default if no string match is done by config
 uint8_t jpeg_size_id = 1;
 
-// Definition for WiFi defaults
+// Definition for WiFi defaults (Note that length[4] should be always +1)
 char timelapse[4]         = "60";
 char upload_host[120]     = "api.slosarek.eu";
 char upload_path[240]     = "/your/upload.php";
 char slave_cam_ip[16]     = "";
 char jpeg_size[10]        = "1600x1200";
-char ms_before_capture[4] = "500";
+char ms_before_capture[5] = "500";
 
 // SPIFFS and memory to save photos
 File fsFile;
@@ -141,7 +141,6 @@ void setup() {
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
   Serial.println(">>>>> Selected Camera model is: "+cameraModel);
-  // Serial.println("resetWifiSettings from EEPROM: "+memory.resetWifiSettings);
   // Read configuration from FS json
   if (SPIFFS.begin()) {
     Serial.println("SPIFFS file system mounted");
@@ -188,7 +187,7 @@ void setup() {
   WiFiManagerParameter param_slave_cam_ip("slave_cam_ip", "Slave cam ip/ping", slave_cam_ip,16);
   WiFiManagerParameter param_upload_host("upload_host", "API host for upload", upload_host,120);
   WiFiManagerParameter param_upload_path("upload_path", "Path to API endoint", upload_path,240);
-  //WiFiManagerParameter param_ms_before_capture("ms_before_capture", "Millis wait after shoot", ms_before_capture, 4, "type=\"number\" title=\"Miliseconds between shutter press and start capturing\"");
+  WiFiManagerParameter param_ms_before_capture("ms_before_capture", "Millis wait after shoot", ms_before_capture, 4, "type=\"number\" title=\"Miliseconds between shutter press and start capturing\"");
   WiFiManagerParameter param_jpeg_size("jpeg_size", "Select JPG Size: 640x480 1024x768 1280x1024 1600x1200 (2 & 5mp) / 2048x1536 2592x1944 (only 5mp)", jpeg_size, 10);
 
  if (onlineMode) {
@@ -204,12 +203,11 @@ void setup() {
   wm.addParameter(&param_slave_cam_ip);
   wm.addParameter(&param_upload_host);
   wm.addParameter(&param_upload_path);
-  // Adding this makes
-  // *WM: [3] Updated _max_params: 10
-  // *WM: [3] re-allocating params bytes: 40   and jpeg_size is not saved
-
- // wm.addParameter(&param_ms_before_capture);
   wm.addParameter(&param_jpeg_size);
+  // Adding this makes
+  // *WM: [3] Updated _max_params: 10  // *WM: [3] re-allocating params bytes: 40  -> and jpeg_size is not saved (Now it is could not reproduce again)
+  wm.addParameter(&param_ms_before_capture);
+
   
   wm.setMinimumSignalQuality(20);
   // Callbacks configuration
@@ -237,7 +235,7 @@ void setup() {
   strcpy(upload_host, param_upload_host.getValue());
   strcpy(upload_path, param_upload_path.getValue());
   strcpy(jpeg_size, param_jpeg_size.getValue());
-  //strcpy(ms_before_capture, param_ms_before_capture.getValue());
+  strcpy(ms_before_capture, param_ms_before_capture.getValue());
   if (shouldSaveConfig) {
     Serial.println("CONNECTED and shouldSaveConfig == TRUE");
    
@@ -248,13 +246,13 @@ void setup() {
     json["upload_host"] = upload_host;
     json["upload_path"] = upload_path;
     json["jpeg_size"] = jpeg_size;
-    //json["ms_before_capture"] = ms_before_capture;
+    json["ms_before_capture"] = ms_before_capture;
     Serial.println("timelapse:"+String(timelapse));
     Serial.println("slave_cam_ip:"+String(slave_cam_ip));
     Serial.println("upload_host:"+String(upload_host));
     Serial.println("upload_path:"+String(upload_path));
     Serial.println("jpeg_size:"+String(jpeg_size));
-    //Serial.println("ms_before_capture:"+String(ms_before_capture));
+    Serial.println("ms_before_capture:"+String(ms_before_capture));
     
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
