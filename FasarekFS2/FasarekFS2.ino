@@ -8,6 +8,7 @@
 // |_|   |_____/|____|     WiFi instant Camera
                    
 // This program requires the ArduCAM V4.0.0 (or later) library and an SPI 2MP or 5MP camera
+#include <Arduino.h>
 #include <FS.h> // In SPIFFS we save the camera config.json
 #include <EEPROM.h>
 #include <WiFiManager.h>
@@ -18,7 +19,7 @@
 #include <Wire.h>
 #include <ArduCAM.h>
 #include <SPI.h>
-#include "Button2.h";
+#include <OneButton.h>
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 
 // If you want to add a display, make sure to get the Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
@@ -45,10 +46,10 @@ unsigned long timelapseMillis;
 // Flag for saving data in config.json
 bool shouldSaveConfig = false;
 
-// Outputs / Inputs (Shutter button D3)
-Button2 buttonShutter = Button2(D3);
-const int ledStatus = D4;
-const int ledStatusTimelapse = D8;
+// Outputs / Inputs (Shutter button D3) Will use only GPIOs from now on
+OneButton buttonShutter(D3, true, false);  // D3
+const int ledStatus = 2;           // D4
+const int ledStatusTimelapse = 15; // D8
 
 // We use WiFi Manager to setup connections and camera settings
 WiFiManager wm;
@@ -68,7 +69,7 @@ String boundary = "_cam_";
 String end_request = "\n--"+boundary+"--\n";
  
 uint8_t temp = 0, temp_last = 0;
-int i = 0;
+unsigned int i = 0;
 bool is_header = false;
 
 ESP8266WebServer server(80);
@@ -271,9 +272,9 @@ void setup() {
   //Serial.println("source:"+String(timelapse));
   //Serial.println("timelapseMillis: "+String(timelapseMillis));
 
-  // Button events
-  buttonShutter.setReleasedHandler(shutterReleased); // Takes picture
-  buttonShutter.setLongClickHandler(shutterLongClick); // Starts timelapse
+  // Button eventsattachLongPressStop
+  buttonShutter.attachClick(shutterReleased); // Takes picture
+  buttonShutter.attachLongPressStop(shutterLongClick); // Starts timelapse
   uint8_t vid, pid;
   uint8_t temp;
 #if defined(__SAM3X8E__)
@@ -690,14 +691,14 @@ void serverCameraSettings() {
 }
 
 // Button events
-void shutterReleased(Button2& btn) {
+void shutterReleased() {
     digitalWrite(ledStatusTimelapse, LOW);
     Serial.println("Released");
     captureTimeLapse = false;
     camWaitBeforeCapture();
 }
 
-void shutterLongClick(Button2& btn) {
+void shutterLongClick() {
     digitalWrite(ledStatusTimelapse, HIGH);
     Serial.println("long click: Enable timelapse");
     captureTimeLapse = true;
@@ -708,7 +709,7 @@ void loop() {
    if (onlineMode) { 
     server.handleClient(); 
    }
-  buttonShutter.loop();
+  buttonShutter.tick();
   
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
@@ -716,3 +717,4 @@ void loop() {
     Serial.println("Timelapse captured");
   }
 }
+
