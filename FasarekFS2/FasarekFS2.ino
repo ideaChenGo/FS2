@@ -514,10 +514,14 @@ String camCapture(ArduCAM myCAM) {
   }
 }
 
+void camWaitBeforeCapture() {
+  // Delay to avoid a blurred photo if the users configures ms_before_capture
+    Serial.println("Waiting "+String(ms_before_capture)+" ms. before capturing");
+    delay(atoi(ms_before_capture));
+    serverCapture();
+}
 
 void serverCapture() {
-  // Delay to avoid a blurred photo if the users configures ms_before_capture
-  delay(atoi(ms_before_capture));
   digitalWrite(ledStatus, HIGH);
   // Set back the selected resolution
   if (cameraModelId == 5) {
@@ -690,7 +694,7 @@ void shutterReleased(Button2& btn) {
     digitalWrite(ledStatusTimelapse, LOW);
     Serial.println("Released");
     captureTimeLapse = false;
-    serverCapture();
+    camWaitBeforeCapture();
 }
 
 void shutterLongClick(Button2& btn) {
