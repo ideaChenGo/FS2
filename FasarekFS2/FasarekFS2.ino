@@ -16,9 +16,11 @@
 // SCK  18 -> May change depending on your board
 // SDA  21
 // SCL  22
-// SHU  04 Shutter button 
+// SHU  00 Shutter button : Update it to whenever thin GPIO connects to GND to take a picture
 // LED  12 ledStatus
 // LED  13 ledStatusTimelapse
+// OLED Display /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16
+#include <Arduino.h>
 #include "FS.h"
 #include "SPIFFS.h"
 #include <EEPROM.h>
@@ -26,10 +28,10 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <WiFiClient.h>
-#include <Wire.h>
 #include <ArduCAM.h>
+#include <Wire.h>
 #include <SPI.h>
-#include "Button2.h";
+#include <OneButton.h>;
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include <WebServer.h>
 #include <U8g2lib.h>        // OLED display
@@ -37,7 +39,7 @@
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -55,10 +57,10 @@ unsigned long timelapseMillis;
 bool shouldSaveConfig = false;
 
 // Outputs / Inputs (Shutter button)
-Button2 buttonShutter = Button2(4);
+OneButton buttonShutter(0, true, false);
 const int ledStatus = 12;
 const int ledStatusTimelapse = 13;
-
+const byte gpioCameraVcc = 2;
 WiFiManager wm;
 WiFiClient client;
 
@@ -240,9 +242,11 @@ void setup() {
 
   // Define outputs. This are also ledStatus signals (Red: no WiFI, B: Timelapse, G: Arducam Chip select)
   pinMode(CS, OUTPUT);
+  pinMode(gpioCameraVcc, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
   
+  digitalWrite(gpioCameraVcc, LOW); // Power camera ON
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
   //printMessage("FS2 CAMERA");
@@ -372,15 +376,12 @@ void setup() {
   timelapseMillis = (timelapseInt) * 1000;
 
   // Button events
-  buttonShutter.setReleasedHandler(shutterReleased); // Takes picture
-  buttonShutter.setLongClickHandler(shutterLongClick); // Starts timelapse
+  buttonShutter.attachClick(shutterReleased); // Takes picture
+  buttonShutter.attachLongPressStop(shutterLongClick); // Starts timelapse
   uint8_t vid, pid;
   uint8_t temp;
-#if defined(__SAM3X8E__)
-  Wire1.begin();
-#else
-  Wire.begin();
-#endif
+  //myCAM.write_reg uses Wire for I2C communication (No idea why ArduCam didn't included this in their lib)
+  Wire.begin(); //sda 21 , scl 22, freq 100000
 
   // initialize SPI:
   SPI.begin();
@@ -418,6 +419,8 @@ void setup() {
   myCAM.rdSensorReg8_8(10, &vid);
   myCAM.rdSensorReg8_8(11, &pid);
 
+  Serial.println("vid:"+String(vid));
+  Serial.println("pid:"+String(pid));
   if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))) {
     printMessage("ERR conn OV2640");
   } else {
@@ -778,12 +781,12 @@ void serverCameraParams() {
 }
 
 // Button events
-void shutterReleased(Button2& btn) {
+void shutterReleased() {
     digitalWrite(ledStatusTimelapse, LOW);
     captureTimeLapse = false;
     serverCapture();
 }
-void shutterLongClick(Button2& btn) {
+void shutterLongClick() {
     digitalWrite(ledStatusTimelapse, HIGH);
     captureTimeLapse = true;
     lastTimeLapse = millis() + timelapseMillis;
@@ -806,11 +809,30 @@ void serverDeepSleep() {
   esp_deep_sleep_start();
 }
 
+
+void cameraInit() {
+  digitalWrite(gpioCameraVcc, LOW); // Power camera ON
+  myCAM.set_format(JPEG);
+  myCAM.InitCAM();
+  if (cameraModelId == 5) {
+    // OV2640   ARDUCHIP_TIM, VSYNC_LEVEL_MASK
+     myCAM.write_reg(3, 2);   //VSYNC is active HIGH
+     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+  }
+  if (cameraModelId == 3) {
+    myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
+  }
+}
+
+void cameraOff() {
+  digitalWrite(gpioCameraVcc, HIGH); // Power camera OFF
+}
+
 void loop() {
    if (onlineMode) { 
     server.handleClient(); 
    }
-  buttonShutter.loop();
+  buttonShutter.tick();
   
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
@@ -818,3 +840,4 @@ void loop() {
     printMessage("> Timelapse captured");
   }
 }
+
