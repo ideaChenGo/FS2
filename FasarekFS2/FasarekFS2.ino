@@ -427,9 +427,6 @@ void setup() {
   } else {
     printMessage("CAMERA READY", true, true);
     printMessage(IpAddress2String(WiFi.localIP()));
-    myCAM.set_format(JPEG);
-    myCAM.InitCAM();
-    myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
   }
 }
 
@@ -466,20 +463,13 @@ void setup() {
    } else {
      printMessage("CAMERA READY", true, true);
      printMessage(IpAddress2String(WiFi.localIP()));
-     myCAM.set_format(JPEG);
-     myCAM.InitCAM();
-     // ARDUCHIP_TIM, VSYNC_LEVEL_MASK
-     myCAM.write_reg(3, 2);   //VSYNC is active HIGH
-     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
    }
   }
-  
+  cameraOff();
   u8cursor = u8cursor+u8newline;
   printMessage("Res: "+ String(jpeg_size));
-  //printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
-  //cameraOff(); // setup();
    // Set up mDNS responder:
   // - first argument is the domain name, in FS2 the fully-qualified domain name is "cam.local"
   // - second argument is the IP address to advertise
@@ -619,12 +609,12 @@ String camCapture(ArduCAM myCAM) {
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
   cameraInit();
-  /* // Set back the selected resolution
+  // Set back the selected resolution
   if (cameraModelId == 5) {
     myCAM.OV2640_set_JPEG_size(jpeg_size_id);
   } else if (cameraModelId == 3) {
     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
-  } */
+  }
 
   start_capture();
   printMessage("CAPTURING", true, true);
@@ -816,35 +806,22 @@ void serverDeepSleep() {
 
 
 void cameraInit() {
-  /* digitalWrite(SCL, HIGH);
-  digitalWrite(SDA, HIGH);
-  delay(10);
-  digitalWrite(SCL, LOW);
-  digitalWrite(SDA, LOW); */
-  //Wire.begin(SDA,SCL,100000); 
-
   digitalWrite(gpioCameraVcc, LOW); // Power camera ON
   delay(100);
   
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
-  if (cameraModelId == 5) {
+/*   if (cameraModelId == 5) {
     // OV2640   ARDUCHIP_TIM, VSYNC_LEVEL_MASK
      myCAM.write_reg(3, 2);   //VSYNC is active HIGH
      myCAM.OV5642_set_JPEG_size(jpeg_size_id);
   }
   if (cameraModelId == 3) {
     myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
-  }
+  } */
 }
 
 void cameraOff() {
-  uint8_t data = 0;
-  while (Wire.available()) {
-     data = Wire.read(); 
-   } 
-   Serial.print("Wire.read:");Serial.println(data);
-
    digitalWrite(gpioCameraVcc, HIGH); // Power camera OFF
 }
 
