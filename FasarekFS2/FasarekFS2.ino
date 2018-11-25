@@ -35,7 +35,7 @@
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include <WebServer.h>
 #include <U8g2lib.h>        // OLED display
-
+//TwoWire Wire = TwoWire(0);
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
@@ -245,8 +245,8 @@ void setup() {
   pinMode(gpioCameraVcc, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
-  
-  digitalWrite(gpioCameraVcc, LOW); // Power camera ON
+  pinMode(SCL, OUTPUT_OPEN_DRAIN | PULLUP);
+  pinMode(SDA, OUTPUT_OPEN_DRAIN | PULLUP);
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
   //printMessage("FS2 CAMERA");
@@ -381,8 +381,9 @@ void setup() {
   uint8_t vid, pid;
   uint8_t temp;
   //myCAM.write_reg uses Wire for I2C communication (No idea why ArduCam didn't included this in their lib)
-  Wire.begin(); //sda 21 , scl 22, freq 100000
-
+  //Wire.begin(); //sda 21 , scl 22, freq 100000
+  Wire.begin(SDA,SCL,100000); 
+  digitalWrite(gpioCameraVcc, LOW); // Power camera ON
   // initialize SPI:
   SPI.begin();
   SPI.setFrequency(4000000); //4MHz
@@ -478,7 +479,7 @@ void setup() {
   //printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
-
+  //cameraOff(); // setup();
    // Set up mDNS responder:
   // - first argument is the domain name, in FS2 the fully-qualified domain name is "cam.local"
   // - second argument is the IP address to advertise
@@ -504,7 +505,7 @@ void setup() {
   }
 
 String camCapture(ArduCAM myCAM) {
-   // Check if available bytes in SPIFFS
+  // Check if available bytes in SPIFFS
   uint32_t bytesAvailableSpiffs = SPIFFS.totalBytes()-SPIFFS.usedBytes();
   uint32_t len  = myCAM.read_fifo_length();
 
@@ -617,12 +618,13 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
-  // Set back the selected resolution
+  cameraInit();
+  /* // Set back the selected resolution
   if (cameraModelId == 5) {
     myCAM.OV2640_set_JPEG_size(jpeg_size_id);
   } else if (cameraModelId == 3) {
     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
-  }
+  } */
 
   start_capture();
   printMessage("CAPTURING", true, true);
@@ -642,6 +644,8 @@ void serverCapture() {
   total_time = 0;
   total_time = millis();
   String response = camCapture(myCAM);
+  //cameraOff(); // Too early here (Don't understand why it does not work)
+
   total_time = millis() - total_time;
   printMessage("Upload in "+String(total_time)+ " ms.");
   Serial.print("RENDER THUMB json bytes:"+String(response.length())+" ");
@@ -687,6 +691,7 @@ void serverCapture() {
   u8g2.clearBuffer();
   u8g2.drawXBM( 0, 0, atoi(thumbWidth), atoi(thumbHeight), (const uint8_t *)image);
   u8g2.sendBuffer();
+  cameraOff();
 
   if (onlineMode) {
     server.send(200, "text/html", "<div id='m'><small>"+String(imageUrl)+
@@ -811,7 +816,16 @@ void serverDeepSleep() {
 
 
 void cameraInit() {
+  /* digitalWrite(SCL, HIGH);
+  digitalWrite(SDA, HIGH);
+  delay(10);
+  digitalWrite(SCL, LOW);
+  digitalWrite(SDA, LOW); */
+  //Wire.begin(SDA,SCL,100000); 
+
   digitalWrite(gpioCameraVcc, LOW); // Power camera ON
+  delay(100);
+  
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
   if (cameraModelId == 5) {
@@ -825,7 +839,13 @@ void cameraInit() {
 }
 
 void cameraOff() {
-  digitalWrite(gpioCameraVcc, HIGH); // Power camera OFF
+  uint8_t data = 0;
+  while (Wire.available()) {
+     data = Wire.read(); 
+   } 
+   Serial.print("Wire.read:");Serial.println(data);
+
+   digitalWrite(gpioCameraVcc, HIGH); // Power camera OFF
 }
 
 void loop() {
