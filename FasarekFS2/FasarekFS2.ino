@@ -39,7 +39,7 @@
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
@@ -394,7 +394,8 @@ void setup() {
     printMessage("ERR SPI: Check");
     printMessage("ArduCam wiring");
     printMessage("cam: "+cameraModel);
-    while (1);
+    delay(2000);
+    serverDeepSleep();
   }
 // TODO Refactor this ugly casting to string just because c adds the 0 operator at end of chars
   if (cameraModel == "OV2640") {
