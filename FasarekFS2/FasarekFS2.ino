@@ -16,7 +16,7 @@
 // SCK  18 -> May change depending on your board
 // SDA  21
 // SCL  22
-// SHU  00 Shutter button : Update it to whenever thin GPIO connects to GND to take a picture
+// SHU  04 Update it to the GPIO connects to GND to take a picture
 // LED  12 ledStatus
 // LED  13 ledStatusTimelapse
 // OLED Display /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16
@@ -35,16 +35,18 @@
 #include <ArduinoJson.h>    // Any version > 5.13.3 gave me an error on swap function
 #include <WebServer.h>
 #include <U8g2lib.h>        // OLED display
-//TwoWire Wire = TwoWire(0);
+
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 // CONFIGURATION. NOTE! Spiffs image save makes everything slower in ESP32
 // Switch ArduCAM model to indicated ID. Ex.OV2640 = 5
-byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
+byte cameraModelId = 5;                        // OV2640:5 |  OV5642:3   5MP  !IMPORTANT Nothing runs if model is not matched
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
-byte  CS = 17;                                 // set GPIO16 as the slave select
-
+byte CS = 17;                                 // set GPIO16 as the slave select
+byte gpioTouch = T0; 
+byte touchInitialRead = 0;
+byte touchThreshold = 14; // Will fire when TO read is < touchInitialRead+touchThreshold
 #include "memorysaver.h"  // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
 // ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
@@ -57,7 +59,8 @@ unsigned long timelapseMillis;
 bool shouldSaveConfig = false;
 
 // Outputs / Inputs (Shutter button)
-OneButton buttonShutter(0, true, false);
+OneButton buttonShutter(4, true, false);
+
 const int ledStatus = 12;
 const int ledStatusTimelapse = 13;
 const byte gpioCameraVcc = 2;
@@ -397,8 +400,7 @@ void setup() {
     printMessage("ERR SPI: Check");
     printMessage("ArduCam wiring");
     printMessage("cam: "+cameraModel);
-    delay(2000);
-    serverDeepSleep();
+    while (1);
   }
 // TODO Refactor this ugly casting to string just because c adds the 0 operator at end of chars
   if (cameraModel == "OV2640") {
@@ -495,6 +497,12 @@ void setup() {
     server.begin();
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
+  
+    for(int i=0; i< 10; i++) {
+    touchInitialRead += touchRead(gpioTouch);
+    }
+    touchInitialRead = touchInitialRead / 10;
+
   }
 
 String camCapture(ArduCAM myCAM) {
@@ -782,6 +790,7 @@ void serverCameraParams() {
 
 // Button events
 void shutterReleased() {
+    Serial.println("shutterReleased()");
     digitalWrite(ledStatusTimelapse, LOW);
     captureTimeLapse = false;
     serverCapture();
@@ -923,6 +932,12 @@ void loop() {
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
     serverCapture();
-    printMessage("> Timelapse captured");
+    printMessage("Timelapse");
+  }
+  //Enable to see touch readings in display (Since it's different without USB connected)
+  //printMessage(String(touchInitialRead),true);printMessage(String(touchRead(T0)),true,true);delay(500);
+  if (touchRead(T0) < touchInitialRead+touchThreshold) {
+    shutterReleased();
   }
 }
+
