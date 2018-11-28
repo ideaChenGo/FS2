@@ -43,9 +43,14 @@ byte cameraModelId = 3;                        // OV2640:5 |  OV5642:3   5MP  !I
 bool saveInSpiffs = false;                     // Whether to save the jpg also in SPIFFS
 const char* configModeAP = "CAM-autoconnect";  // Default config mode Access point
 char* localDomain        = "cam";              // mDNS: cam.local
-byte  CS = 17;                                 // set GPIO16 as the slave select
+byte  CS = 17;                                 // set GPIO17 as the slave select
 
-#include "memorysaver.h"  // Uncomment the camera model you use
+// Touch configuration
+byte gpioTouch = T0; 
+byte touchInitialRead = 0;
+byte touchThreshold = 14;   // Will fire when TO read is < touchInitialRead+touchThreshold
+boolean touchEnabled= true; // NOTE: touchEnabled will disable the phisical button readings
+#include "memorysaver.h"    // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
 // ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
 
@@ -60,7 +65,11 @@ bool shouldSaveConfig = false;
 OneButton buttonShutter(0, true, false);
 const int ledStatus = 12;
 const int ledStatusTimelapse = 13;
+// Goes together if cameraMosfetReady is enabled Arducam will turn on only to take the picture
+// In turn it should be connected to VEXT or to a Mosfed that on HIGH will cut the VCC to the camera
+const boolean cameraMosfetReady = false;
 const byte gpioCameraVcc = 2;
+
 WiFiManager wm;
 WiFiClient client;
 
@@ -109,6 +118,8 @@ struct config_t
 byte u8cursor = 1;
 byte u8newline = 5;
 
+String cameraSetting;
+byte   cameraSetValue;
 #include "FS2helperFunctions.h"; // Helper methods: printMessage + EPROM
 #include "serverFileManager.h";  // Responds to the FS Routes
 // ROUTING Definitions
@@ -228,12 +239,21 @@ void setup() {
   if (cameraModelId == 5) {
     // Please select the hardware platform for your camera module in the ../libraries/ArduCAM/memorysaver.h file
     cameraModel = "OV2640";
+    cameraSetting = "effect";
+    cameraSetValue = 7; // No effect
   }
   if (cameraModelId == 3) {
     cameraModel = "OV5642";
+    cameraSetting = "exposure";
+    cameraSetValue = 5; // Default
   }
   EEPROM.begin(12);
   Serial.begin(115200);
+  for(int i=0; i< 10; i++) {
+    touchInitialRead += touchRead(gpioTouch);
+  }
+  touchInitialRead = touchInitialRead / 10;
+  Serial.println("touchInitialRead: "+String(touchInitialRead));
   // Find out what are this PINS on ESP32 
   //Serial.print("MOSI:");Serial.println(MOSI);
   //Serial.print("MISO:");Serial.println(MISO);
@@ -376,8 +396,10 @@ void setup() {
   timelapseMillis = (timelapseInt) * 1000;
 
   // Button events
+  if (touchEnabled) {
   buttonShutter.attachClick(shutterReleased); // Takes picture
   buttonShutter.attachLongPressStop(shutterLongClick); // Starts timelapse
+  }
   uint8_t vid, pid;
   uint8_t temp;
   //myCAM.write_reg uses Wire for I2C communication (No idea why ArduCam didn't included this in their lib)
@@ -480,7 +502,8 @@ void setup() {
 
   myCAM.clear_fifo_flag();
 
-   // Set up mDNS responder:
+  if (cameraMosfetReady) { cameraOff(); }
+  // Set up mDNS responder:
   // - first argument is the domain name, in FS2 the fully-qualified domain name is "cam.local"
   // - second argument is the IP address to advertise
   if (onlineMode) {
@@ -502,6 +525,7 @@ void setup() {
     server.begin();
   }
   lastTimeLapse = millis() + timelapseMillis;  // Initialize timelapse
+
   }
 
 String camCapture(ArduCAM myCAM) {
@@ -618,11 +642,14 @@ String camCapture(ArduCAM myCAM) {
 
 void serverCapture() {
   digitalWrite(ledStatus, HIGH);
+  if (cameraMosfetReady) { cameraInit(); }
   // Set back the selected resolution
   if (cameraModelId == 5) {
     myCAM.OV2640_set_JPEG_size(jpeg_size_id);
+    myCAM.OV2640_set_Special_effects(cameraSetValue);
   } else if (cameraModelId == 3) {
     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
+    myCAM.OV5642_set_Exposure_level(cameraSetValue);
   }
 
   start_capture();
@@ -647,6 +674,8 @@ void serverCapture() {
   printMessage("Upload in "+String(total_time)+ " ms.");
   Serial.print("RENDER THUMB json bytes:"+String(response.length())+" ");
   
+  if (cameraMosfetReady) { cameraOff(); }
+
   DynamicJsonBuffer jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(response);
    
@@ -810,35 +839,128 @@ void serverDeepSleep() {
   esp_deep_sleep_start();
 }
 
-
 void cameraInit() {
-  digitalWrite(gpioCameraVcc, LOW); // Power camera ON
+  digitalWrite(gpioCameraVcc, LOW);       // Power camera ON
+  
+  if (cameraModelId == 3) {
+     Serial.println("OV5642 initialization. jpegSize: "+String(jpeg_size_id));
+     delay(300);
+     temp = SPI.transfer(0x00);
+     myCAM.clear_bit(6, GPIO_PWDN_MASK);  // OV5642 Disable low power
+     delay(300);
+  }
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
-  if (cameraModelId == 5) {
-    // OV2640   ARDUCHIP_TIM, VSYNC_LEVEL_MASK
-     myCAM.write_reg(3, 2);   //VSYNC is active HIGH
-     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
-  }
-  if (cameraModelId == 3) {
-    myCAM.OV2640_set_JPEG_size(jpeg_size_id); 
-  }
+  myCAM.write_reg(3, 2);                  //VSYNC is active HIGH
+  delay(3);
 }
 
 void cameraOff() {
   digitalWrite(gpioCameraVcc, HIGH); // Power camera OFF
 }
 
+void serverStream() {
+  cameraInit();
+    printMessage("STREAMING");
+  if (cameraModelId == 5) {
+    myCAM.OV2640_set_JPEG_size(2);
+  } else if (cameraModelId == 3) {
+    myCAM.OV5642_set_JPEG_size(1);
+  }
+  WiFiClient client = server.client();
+
+  String response = "HTTP/1.1 200 OK\r\n";
+  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
+  server.sendContent(response);
+  int counter = 0;
+  while (true) {
+    counter++;
+    // Use a handleClient only 1 every 99 times
+    if (counter % 99 == 0) {
+       server.handleClient();
+       Serial.print(String(counter)+" % 99 Matched");
+    }
+    start_capture();
+    while (!myCAM.get_bit(ARDUCHIP_TRIG, CAP_DONE_MASK));
+    size_t len = myCAM.read_fifo_length();
+
+    if (len == 0 ) //0 kb
+    {
+      Serial.println(F("Size is 0."));
+      continue;
+    }
+    myCAM.CS_LOW();
+    myCAM.set_fifo_burst();
+    response = "--frame\r\n";
+    response += "Content-Type: image/jpeg\r\n\r\n";
+    server.sendContent(response);
+    
+    while ( len-- )
+    {
+      temp_last = temp;
+      temp =  SPI.transfer(0x00);
+
+      //Read JPEG data from FIFO
+      if ( (temp == 0xD9) && (temp_last == 0xFF) ) //If find the end ,break while,
+      {
+        buffer[i++] = temp;  //save the last  0XD9
+        //Write the remain bytes in the buffer
+        myCAM.CS_HIGH();
+        client.write(&buffer[0], i);
+        is_header = false;
+        i = 0;
+      }
+      if (is_header == true)
+      {
+        //Write image data to buffer if not full
+        if (i < bufferSize)
+          buffer[i++] = temp;
+        else
+        {
+          //Write bufferSize bytes image data to file
+          myCAM.CS_HIGH();
+          if (!client.connected()) {
+            client.stop(); is_header = false; break;
+          }
+          client.write(&buffer[0], bufferSize);
+          i = 0;
+          buffer[i++] = temp;
+          myCAM.CS_LOW();
+          myCAM.set_fifo_burst();
+        }
+      }
+      else if ((temp == 0xD8) & (temp_last == 0xFF))
+      {
+        is_header = true;
+        buffer[i++] = temp_last;
+        buffer[i++] = temp;
+      }
+    }
+    if (!client.connected()) {
+      client.stop(); is_header = false; break;
+    }
+  }
+  cameraOff();
+}
+
 void loop() {
    if (onlineMode) { 
     server.handleClient(); 
    }
-  buttonShutter.tick();
   
   if (captureTimeLapse && millis() >= lastTimeLapse) {
     lastTimeLapse += timelapseMillis;
     serverCapture();
     printMessage("> Timelapse captured");
+  }
+  //Enable to see touch readings in display (Since it's different without USB connected)  
+  //printMessage(String(touchInitialRead),true);
+  //printMessage(String(touchRead(gpioTouch)),true,true);Serial.println(touchInitialRead);delay(500);
+  //if (touchEnabled && (touchRead(gpioTouch) < touchInitialRead+touchThreshold)) {
+  //  shutterReleased();
+  //} 
+  if (!touchEnabled)  {
+    buttonShutter.tick();
   }
 }
 
