@@ -46,14 +46,14 @@ char* localDomain        = "cam";              // mDNS: cam.local
 byte  CS = 17;                                 // set GPIO17 as the slave select
 
 // Touch configuration
-byte gpioTouch = T0; 
+byte gpioTouch = 2;         // T2
 byte touchInitialRead = 0;
-byte touchThreshold = 14;   // Will fire when TO read is < touchInitialRead+touchThreshold
-boolean touchEnabled= true; // NOTE: touchEnabled will disable the phisical button readings
+byte touchThreshold = 10;   // Will fire when Touch read is < touchInitialRead+touchThreshold see Touch.NOTE below
+boolean touchEnabled= false; // NOTE: touchEnabled will disable the phisical button readings
 #include "memorysaver.h"    // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
 // ATTENTION NodeMCU: For NodeMCU 1.0 ESP-12E it only worked using Tools->CPU Frequency: 160 Mhz
-
+// Touch.NOTE: It happened that misteriously T0 died for touch and started returning only 0. No idea why, just change it to another Touch pin
 // INTERNAL GLOBALS
 boolean captureTimeLapse;
 static unsigned long lastTimeLapse;
@@ -62,11 +62,11 @@ unsigned long timelapseMillis;
 bool shouldSaveConfig = false;
 
 // Outputs / Inputs (Shutter button)
-OneButton buttonShutter(0, true, false);
+OneButton buttonShutter(4, true, false);
 const int ledStatus = 12;
 const int ledStatusTimelapse = 13;
 // Goes together if cameraMosfetReady is enabled Arducam will turn on only to take the picture
-// In turn it should be connected to VEXT or to a Mosfed that on HIGH will cut the VCC to the camera
+// In turn it should be connected to VEXT or to a Mosfet that on HIGH will cut the VCC to the camera
 const boolean cameraMosfetReady = false;
 const byte gpioCameraVcc = 2;
 
@@ -265,7 +265,8 @@ void setup() {
   pinMode(gpioCameraVcc, OUTPUT);
   pinMode(ledStatus, OUTPUT);
   pinMode(ledStatusTimelapse, OUTPUT);
-  
+  pinMode(SCL, OUTPUT_OPEN_DRAIN | PULLUP);
+  pinMode(SDA, OUTPUT_OPEN_DRAIN | PULLUP);
   digitalWrite(gpioCameraVcc, LOW); // Power camera ON
   // Read memory struct from EEPROM
   EEPROM_readAnything(0, memory);
@@ -396,15 +397,15 @@ void setup() {
   timelapseMillis = (timelapseInt) * 1000;
 
   // Button events
-  if (touchEnabled) {
+  if (!touchEnabled) {
   buttonShutter.attachClick(shutterReleased); // Takes picture
   buttonShutter.attachLongPressStop(shutterLongClick); // Starts timelapse
   }
   uint8_t vid, pid;
   uint8_t temp;
-  //myCAM.write_reg uses Wire for I2C communication (No idea why ArduCam didn't included this in their lib)
-  Wire.begin(); //sda 21 , scl 22, freq 100000
-
+  // myCAM.write_reg uses Wire for I2C communication
+  //Wire.begin(SDA,SCL,100000); //sda 21 , scl 22, freq 100000
+  Wire.begin();
   // initialize SPI:
   SPI.begin();
   SPI.setFrequency(4000000); //4MHz
@@ -501,7 +502,6 @@ void setup() {
   //printMessage("Counter: "+String(memory.photoCount)+"\n");
 
   myCAM.clear_fifo_flag();
-
   if (cameraMosfetReady) { cameraOff(); }
   // Set up mDNS responder:
   // - first argument is the domain name, in FS2 the fully-qualified domain name is "cam.local"
@@ -651,7 +651,7 @@ void serverCapture() {
     myCAM.OV5642_set_JPEG_size(jpeg_size_id);
     myCAM.OV5642_set_Exposure_level(cameraSetValue);
   }
-
+  delay(3);
   start_capture();
   printMessage("CAPTURING", true, true);
   u8cursor = u8cursor+u8newline;
@@ -841,17 +841,18 @@ void serverDeepSleep() {
 
 void cameraInit() {
   digitalWrite(gpioCameraVcc, LOW);       // Power camera ON
-  
+  delay(100);
+
   if (cameraModelId == 3) {
      Serial.println("OV5642 initialization. jpegSize: "+String(jpeg_size_id));
-     delay(300);
+     delay(3);
      temp = SPI.transfer(0x00);
      myCAM.clear_bit(6, GPIO_PWDN_MASK);  // OV5642 Disable low power
-     delay(300);
-  }
+     delay(3);
+     myCAM.write_reg(3, 2);                  //VSYNC is active HIGH
+  } 
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
-  myCAM.write_reg(3, 2);                  //VSYNC is active HIGH
   delay(3);
 }
 
@@ -860,7 +861,7 @@ void cameraOff() {
 }
 
 void serverStream() {
-  cameraInit();
+  if (cameraMosfetReady) { cameraInit(); }
     printMessage("STREAMING");
   if (cameraModelId == 5) {
     myCAM.OV2640_set_JPEG_size(2);
@@ -940,7 +941,7 @@ void serverStream() {
       client.stop(); is_header = false; break;
     }
   }
-  cameraOff();
+  if (cameraMosfetReady) { cameraOff(); }
 }
 
 void loop() {
@@ -953,12 +954,13 @@ void loop() {
     serverCapture();
     printMessage("> Timelapse captured");
   }
+
   //Enable to see touch readings in display (Since it's different without USB connected)  
-  //printMessage(String(touchInitialRead),true);
-  //printMessage(String(touchRead(gpioTouch)),true,true);Serial.println(touchInitialRead);delay(500);
-  //if (touchEnabled && (touchRead(gpioTouch) < touchInitialRead+touchThreshold)) {
-  //  shutterReleased();
-  //} 
+  //printMessage(String(touchInitialRead));printMessage(String(touchRead(gpioTouch)),true);delay(200);printMessage("",true,true);
+  if (touchEnabled && (touchRead(gpioTouch) < touchInitialRead+touchThreshold)) {
+    //printMessage("TOUCH",true,true);
+    shutterReleased();
+  } 
   if (!touchEnabled)  {
     buttonShutter.tick();
   }
