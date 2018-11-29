@@ -56,7 +56,7 @@ char* localDomain        = "cam";              // mDNS: cam.local
 // Touch configuration
 byte gpioTouch = 15;         // T3
 byte touchInitialRead = 0;
-byte touchThreshold = 15;   // Will fire when Touch read is < touchInitialRead+touchThreshold see Touch.NOTE below
+byte touchThreshold = 38;   // Will fire when Touch read is < touchInitialRead+touchThreshold see Touch.NOTE below
 boolean touchEnabled= true; // NOTE: touchEnabled will disable the phisical button readings
 #include "memorysaver.h"    // Uncomment the camera model you use
 // NOTE:     ArduCAM owners please also make sure to choose your camera module in the ../libraries/ArduCAM/memorysaver.h
@@ -838,18 +838,18 @@ void serverDeepSleep() {
 void cameraInit() {
   digitalWrite(gpioCameraVcc, LOW);       // Power camera ON
 
-  if (cameraModelId == 3) {
-     myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
-     delay(4);
-     myCAM.clear_bit(6, GPIO_PWDN_MASK);  // OV5642 Disable low power
-     printMessage("OV5642 init()");
+  if (cameraModelId == 3) {               // OV5642 Needs special settings otherwise will not wake up
+     myCAM.clear_bit(6, GPIO_PWDN_MASK);  // Disable low power
+     delay(3);
+     myCAM.set_format(JPEG);
+     myCAM.InitCAM();
+     delay(50); 
+     myCAM.write_reg(3, 2);               // VSYNC is active HIGH
+     delay(47); 
+  } else {
+     myCAM.set_format(JPEG);
+     myCAM.InitCAM();
   }
-  delay(50); 
-  myCAM.set_format(JPEG);
-  myCAM.InitCAM();
-  delay(50); 
-  myCAM.write_reg(3, 2);               // VSYNC is active HIGH
-  delay(50); 
 }
 
 void cameraOff() {
