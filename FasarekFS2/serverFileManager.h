@@ -28,7 +28,7 @@ void serverListFiles() {
   
   String fileName = "/template.html";
   webTemplate = "";
-  printMessage("Listing files on SPIFFS:");
+  printMessage("Listing files");
   
   if (SPIFFS.exists(fileName)) {
     File file = SPIFFS.open(fileName, "r");
